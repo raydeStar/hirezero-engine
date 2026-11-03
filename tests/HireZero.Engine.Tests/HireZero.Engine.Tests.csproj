@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/HireZero.Integrations.Sandbox/HireZero.Integrations.Sandbox.csproj" />
+    <ProjectReference Include="../../src/HireZero.Integrations.Web/HireZero.Integrations.Web.csproj" />
+    <Using Include="HireZero.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

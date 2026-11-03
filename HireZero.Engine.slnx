@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HireZero.Core/HireZero.Core.csproj" />
+    <Project Path="src/HireZero.Integrations.Sandbox/HireZero.Integrations.Sandbox.csproj" />
+    <Project Path="src/HireZero.Integrations.Web/HireZero.Integrations.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HireZero.Engine.Tests/HireZero.Engine.Tests.csproj" />
+  </Folder>
+</Solution>

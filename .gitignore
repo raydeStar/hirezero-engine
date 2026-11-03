@@ -1,0 +1,19 @@
+**/bin/
+**/obj/
+**/node_modules/
+*.user
+*.log
+test-results/
+TestResults/
+/artifacts/
+# Keys and local settings never enter the repository; only the example does.
+.env*
+!.env.example
+**/*secrets*.json
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
+**/logs/
+# Receipts from a live smoke test stay on the machine that ran it.
+/receipts/
