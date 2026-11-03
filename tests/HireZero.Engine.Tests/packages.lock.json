@@ -132,6 +132,9 @@
       "hirezero.core": {
         "type": "Project"
       },
+      "hirezero.integrations.inference": {
+        "type": "Project"
+      },
       "hirezero.integrations.sandbox": {
         "type": "Project",
         "dependencies": {

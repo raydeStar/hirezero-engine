@@ -24,9 +24,38 @@ Copied from HireZero `main` at `30a8ca9` (Nov 3, 2026), with no behavior changes
 
 Namespaces keep their HireZero names so the lift stays a straight copy.
 
+## Built Nov 3–8, 2026 (Vultr Agent Rush)
+
+Everything after the first commit was built during the event, on the `vultr-agent-rush` branch.
+
+| Date | What | Where |
+| --- | --- | --- |
+| Nov 3 | Config-driven model calls: one OpenAI-compatible client, Vultr Serverless Inference by default with DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`); OpenRouter only as a named local-test option. No retries, `max_tokens` on every call, token use logged per call without prompts, replies or keys | `src/HireZero.Integrations.Inference/` |
+| Nov 3 | A live smoke test that makes one call and prints its token use; dry run unless `--live` | `tools/HireZero.Engine.Smoke/` |
+
+### Model provider
+
+Every LLM call goes through `InferenceClient`, configured only from environment variables (see
+[`.env.example`](.env.example)):
+
+| Variable | Default |
+| --- | --- |
+| `VULTR_INFERENCE_API_KEY` | required |
+| `VULTR_INFERENCE_BASE_URL` | `https://api.vultrinference.com/v1` |
+| `HIREZERO_INFERENCE_MODEL` | `deepseek-v4.1-flash-1017` |
+| `HIREZERO_INFERENCE_MAX_OUTPUT_TOKENS` | `24000` (DeepSeek reasons before answering and Vultr cannot turn that off) |
+| `HIREZERO_INFERENCE_TIMEOUT_SECONDS` | `300` |
+| `HIREZERO_INFERENCE_REASONING_EFFORT` | `low` (`minimal`, `low`, `medium` or `high`) |
+| `HIREZERO_INFERENCE_PROVIDER` | `vultr`; `openrouter` with `OPENROUTER_API_KEY` for local tests only |
+
+```sh
+dotnet run --project tools/HireZero.Engine.Smoke            # dry run: shows the provider, sends nothing
+dotnet run --project tools/HireZero.Engine.Smoke -- --live  # one call through Vultr, token use to receipts/
+```
+
 ## Checks
 
-All checks are offline. Tests that need a real container image or Chrome skip unless their opt-in variable is set.
+All checks are offline; none calls a model. Tests that need a real container image or Chrome skip unless their opt-in variable is set.
 
 ```sh
 dotnet test --solution HireZero.Engine.slnx
