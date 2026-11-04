@@ -23,7 +23,7 @@ flowchart LR
 | --- | --- |
 | Can page text change the itinerary? | The agent validates the draft before approval. The answer request contains captured text and has no tools. Tests inject a navigation instruction, try an unapproved origin, a private address, `file:` and `javascript:`, and try to spend an approval twice. [Agent scope tests](tests/HireZero.Engine.Tests/BrowserTaskTests.cs) |
 | Can the browser call another site? | Chromium runs with `--network none` and checks the origin before asking the broker. The broker independently checks the origin, public address, GET method, crawl policy and budgets. The receipt separates worker-observed off-site origins from broker refusals. [Driver](runtime/browser/driver.mjs) · [Broker](src/HireZero.Integrations.Web/PublicBrowserNetwork.cs) · [Refusal tests](tests/HireZero.Engine.Tests/BrowserNetworkLogTests.cs) |
-| What gets into the sandbox? | The container has a read-only root, no host credentials or mounts, 512 MiB, one CPU and a 128-process cap. Each browser packet has a deadline of at most 120 seconds. Tests inspect the actual arguments constructed for Docker and look for a planted credential in the worker input. [Containment tests](tests/HireZero.Engine.Tests/BrowserContainmentTests.cs) · [Packet limits](src/HireZero.Core/Browser.cs) |
+| What gets into the sandbox? | The container has a read-only root, no host credentials or bind mounts, 512 MiB, one CPU and a 128-process cap. Each browser packet has a deadline of at most 120 seconds. Tests inspect the actual arguments constructed for Docker and look for a planted credential in the worker input. [Containment tests](tests/HireZero.Engine.Tests/BrowserContainmentTests.cs) · [Packet limits](src/HireZero.Core/Browser.cs) |
 | What survives a run? | The runner writes the execution and JPEGs, records release, then requests an answer if it has text. The real-image qualification checks bounded capture, recovery, timeout, cancellation and removal on the specific engine. [Run sequence](src/HireZero.Agent/BrowserTask.cs) · [Real-image test](tests/HireZero.Engine.Tests/BrowserRuntimeTests.cs) |
 
 **Observed locally on November 4.** A newly qualified gVisor browser read the HireZero homepage in 14.429 seconds. The owner-approved run produced a JPEG and an answer, used 2,575 OpenRouter tokens, and left zero labeled browser containers. The broker allowed ten requests and refused none. [Run summary](docs/history/2026-11-04-local-browser-run.md)
@@ -42,6 +42,8 @@ For a real browser task, use the [host setup and qualification runbook](deploy/v
 ```sh
 dotnet run --project tools/HireZero.Engine.Run -- --goal "What does HireZero help a user do?" --site https://hirezero.app --runs "$DEMO_RUNS"
 ```
+
+**Script runtime (stretch).** The same CLI accepts `--script --goal "Calculate the first ten triangular numbers"` instead of a site. The model drafts JavaScript. The owner reviews the full packet before approving its digest. Tests with fakes cover one execution, saved output, release and refusal to replay after an uncertain outcome. Real-image script qualification on Vultr is pending. [Script command and required settings](tools/HireZero.Engine.Run/ScriptCommand.cs) · [Offline tests](tests/HireZero.Engine.Tests/ScriptTaskTests.cs)
 
 ### What came from HireZero
 

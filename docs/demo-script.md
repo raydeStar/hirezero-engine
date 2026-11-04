@@ -32,11 +32,11 @@ dotnet run --project tools/HireZero.Engine.Run -- --goal "What does HireZero hel
 
 **Narration.** “Here is what the approved read captured. Compare the visible page text with the answer to our opening question. The model received the capture as text. It had no browser tool for following another instruction on the page.”
 
-### 2:05–2:40 · Inspect the refusal (35 s, same run)
+### 2:05–2:40 · Inspect the refusal (35 s, run and qualification on the same engine)
 
-**Picture.** In the same job's `receipt.json`, open `browser.blockedOffSiteOrigins` and `network.blocked`. The November 4 run recorded ten allowed broker requests and zero off-site refusals. For this footage, show the actual counts and the separately labeled test below. If a later approved run records a refusal, show the matching `BLOCKED off-site` console line and point to the origin. A browser observation can precede any broker call. If neither recorded an off-site refusal, show the actual counts and mark the live refusal shot pending. A separate screen of the broker's off-site unit test must be captioned **offline test**. [Runner receipt](../tools/HireZero.Engine.Run/Program.cs) · [Broker refusal test](../tests/HireZero.Engine.Tests/BrowserNetworkLogTests.cs)
+**Picture.** In the HireZero run's `receipt.json`, show the empty `browser.blockedOffSiteOrigins` and `network.blocked` arrays. Cut to the private qualification receipt's `broker-scope` check and the assertion for `outside.example.invalid` in the real-image test. Caption this cut **Local qualification · fictional page**. If a later, separately approved live run records a `BLOCKED off-site` line, show that line beside its own receipt. [Receipt writer](../tools/HireZero.Engine.Run/Program.cs) · [Real-image assertion](../tests/HireZero.Engine.Tests/BrowserRuntimeTests.cs)
 
-**Narration.** If observed: “This origin was outside my approved site. The receipt identifies where the refusal happened. The page capture lets us see how much of the answer survived.” Otherwise: “This run recorded no off-site refusal. Here is the separate offline test that sends an off-site request to the broker and checks it never reaches the transport.”
+**Narration.** “The HireZero page made ten allowed requests and triggered no off-site refusal. To see an actual refusal on this engine, look at the qualification test. Its fictional page tries to fetch an outside origin. The test checks the returned browser result for that refused URL before it will issue this receipt.”
 
 ### 2:40–3:15 · Check the empty host (35 s, same Docker engine)
 
