@@ -111,6 +111,11 @@ function draftForm() {
       ? "https://paper.example.invalid"
       : "https://choosealicense.com",
   });
+  const actions = el("div", "row");
+  const template = submit("Use homepage template");
+  template.value = "homepage";
+  template.className = "quiet";
+  actions.append(submit("Draft itinerary"), template);
   form.append(
     el("div", "kicker", "01  /  Prepare"),
     el("h2", "", "Draft a browser task"),
@@ -123,16 +128,23 @@ function draftForm() {
         ? "This rehearsal uses a fictional page and simulated model responses."
         : "Drafting sends one model request. Browsing waits until you approve the packet.",
     ),
-    submit("Draft itinerary"),
+    actions,
+    el(
+      "p",
+      "hint",
+      "The homepage template prepares a single read of the page body without calling a model to plan it.",
+    ),
   );
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const body = { goal: goal.value.trim(), site: site.value.trim() };
+    const endpoint =
+      e.submitter?.value === "homepage" ? "/api/homepage-packet" : "/api/draft";
     void act(async () => {
       const state = el("p", "busy", "Preparing the itinerary…");
       form.append(state);
       try {
-        const draft = await api("/api/draft", body, session.csrf);
+        const draft = await api(endpoint, body, session.csrf);
         ownerJob = draft.jobId;
         review(draft);
       } finally {
@@ -326,8 +338,8 @@ function result(job) {
         "p",
         "",
         job.blockedOrigins?.length
-          ? "Worker-observed off-site origins: " + job.blockedOrigins.join(", ")
-          : "No worker-observed off-site origins recorded.",
+          ? "Blocked off-site origins: " + job.blockedOrigins.join(", ")
+          : "No blocked off-site origins recorded.",
       ),
     );
     for (const e of job.events ?? [])
