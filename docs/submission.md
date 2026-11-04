@@ -2,19 +2,21 @@
 
 ## Title
 
-HireZero Engine — A Browser Agent With Receipts
+HireZero Engine — Research With Receipts
 
 ## Short description
 
-Give the agent a question and a public site. Review its itinerary, approve the exact packet, then inspect the captured page, the answer, the network decisions, the token usage and whether the browser was removed. [Browser task][task] · [Receipt writer][runner]
+A product marketer asks what a website promises. HireZero opens the approved site in an isolated browser and returns an answer, a screenshot and a receipt showing what it contacted and whether it shut down.
 
 ## Long description
 
-Suppose you ask, “What does HireZero help a user do?” That question authorizes reading a site. It says nothing about loading a third-party script or opening another site because the page asks. HireZero Engine makes the scope visible. The host shows the steps, permitted origins, limits and packet digest before the browser starts. If the digest differs, execution stops. After the read, the agent saves the capture and asks the model to answer from that text. [Browser task][task] · [Approval and execution tests][task-tests]
+Before drafting a campaign, a product marketer needs to know what the product page actually promises. Give HireZero one question and one public site. The model drafts the browser steps. The owner reviews the origins, limits and packet digest before Chromium starts. After the run, the marketer can read the answer against the captured page and inspect which requests the browser and host broker allowed or refused.
 
-A judge can inspect what each layer checked. One test plants a fictional provider key on the host and examines the container arguments and worker input for it. Another checks the gVisor runtime, disabled networking, 512 MiB memory limit, one CPU and removal on release. A broker test asks for an off-site URL and asserts that the transport never receives it. The runner records the qualified image, the request decisions seen by the broker and the release result. A separate real-image suite exercises Chromium under gVisor. On November 4, a fresh local WSL qualification passed. One owner-approved OpenRouter run then read the HireZero homepage in 14.429 seconds, saved a screenshot and answer, and confirmed release. The broker allowed ten requests, with zero refusals. The two model calls used 2,575 tokens. [November 4 run summary][local-run] [Containment tests][containment] · [Broker tests][broker-tests] · [Receipt writer][runner] · [Real-image test][real-test] · [Local qualification history][history]
+On November 4 the agent read the HireZero homepage to answer what the product helps a user do. The local browser captured the page in 14.429 seconds. Its broker allowed ten requests, the run reported no refusals, and a separate host check found zero containers bearing the engine's browser label. The two OpenRouter calls used 2,575 tokens. A separate qualification on the same engine exercised a fictional page that attempted an off-site fetch.
 
-During the November 3–8 build window we took HireZero's existing sandbox workers, Docker adapters and public-web broker and built a browser agent around them. Event work added the inference client, per-run and monthly token limits, request logging, digest approval, a text-answer step and VM setup scripts. The cost record charges unknown outcomes conservatively, and the client does not replay an uncertain call. The present judge entry point is the terminal runner. [Original import][import] · [Event changes through Nov 3][event] · [Budget and retry tests][inference-tests] · [Runner][runner]
+HireZero contributed the pinned workers, Docker adapters and public-web broker. During Agent Rush we added the model-driven workflow, one-use packet approval, request logging, token accounting and VM setup. Vultr Cloud Compute is the deployment target and Vultr Serverless Inference is the configured provider. Hosted qualification, a public HTTPS demo and a Vultr inference receipt are pending.
+
+**Evidence for the listing.** The run summary records the task, capture, timings, tokens and teardown. The qualification test checks the off-site refusal, the scope tests exercise the approval boundary, and the import and event changes establish lineage. [Local run][local-run] · [Real-image qualification][real-test] · [Scope tests][task-tests] · [Agent][task] · [Runner][runner] · [Import][import] · [Event changes through November 3][event]
 
 ## Vultr and deployment status
 
@@ -22,12 +24,20 @@ During the November 3–8 build window we took HireZero's existing sandbox worke
 | --- | --- | --- |
 | Vultr VM backend | Scripts for provisioning a disposable Ubuntu VM, validating downloads and qualifying the browser on the VM's own engine. [Deployment runbook][deploy] · [Qualification script][qualify] | **Pending** — successful VM qualification and a hosted run. |
 | Vultr Serverless Inference | The client defaults to Vultr. OpenRouter is a separately configured local stand-in. [Configuration tests][inference-tests] | **Pending** — receipt from a Vultr call. |
-| Isolated sandbox | Pinned worker, enforced container profile, offline broker/containment tests and a fresh local real-image qualification followed by one public-site run. [Local run][local-run] [Containment tests][containment] · [Broker tests][broker-tests] · [Local history][history] | **Pending** — same-host proof on Vultr. |
+| Isolated sandbox | Pinned worker, enforced container profile, offline broker/containment tests and a fresh local real-image qualification followed by one public-site run. [Local run][local-run] · [Containment tests][containment] · [Broker tests][broker-tests] · [Local history][history] | **Pending** — same-host proof on Vultr. |
 | Web app on Vultr | The current interface is the terminal runner. The owner selected a single-owner HTTPS app with a read-only judge gallery. [Runner][runner] · [Design decision][web-decision] | **Pending** — deployed HTTPS web app and judge URL. |
 
 ## Listing fields
 
+**Challenge** · Blast Radius Zero
+
+**Participation mode** · [Owner to confirm online or on-site]
+
 **Tags** · AI agents, browser automation, gVisor, sandboxing, Vultr, .NET
+
+**GitHub** · [Event branch][branch]. Owner to publish the final revision and verify the links signed out.
+
+**Demo application platform** · Vultr Cloud Compute, with Vultr Serverless Inference for model calls. Hosted deployment pending. [Deployment runbook][deploy] · [Inference configuration][inference-tests]
 
 **Cover caption** · One approved website. What did the browser actually read? Use a redacted capture beside its itinerary digest and release status when available. [Capture writer][task] · [Receipt fields][runner]
 
@@ -41,7 +51,11 @@ During the November 3–8 build window we took HireZero's existing sandbox worke
 
 **Demo link** · [Pending — owner-verified HTTPS web app on Vultr]
 
-**Video** · [Pending — published recording with provider and host identified]
+**Video** · [Pending — uploaded recording with provider and host identified]
+
+**Slide PDF and 16:9 cover** · [Pending — final upload]
+
+See the [competition audit](history/2026-11-04-competition-audit.md) for the event requirements and public-link checks.
 
 [local-run]: https://github.com/raydeStar/hirezero-engine/blob/vultr-agent-rush/docs/history/2026-11-04-local-browser-run.md
 [web-decision]: https://github.com/raydeStar/hirezero-engine/blob/vultr-agent-rush/docs/adr/0147-single-owner-demo-web-app.md
@@ -58,3 +72,5 @@ During the November 3–8 build window we took HireZero's existing sandbox worke
 [deploy]: https://github.com/raydeStar/hirezero-engine/blob/vultr-agent-rush/deploy/vultr/README.md
 [qualify]: https://github.com/raydeStar/hirezero-engine/blob/vultr-agent-rush/deploy/vultr/qualify.sh
 [broker]: https://github.com/raydeStar/hirezero-engine/blob/vultr-agent-rush/src/HireZero.Integrations.Web/PublicBrowserNetwork.cs
+
+[branch]: https://github.com/raydeStar/hirezero-engine/tree/vultr-agent-rush
