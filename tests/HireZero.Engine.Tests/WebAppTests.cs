@@ -133,6 +133,10 @@ public sealed class WebAppTests : IDisposable
         Assert.True(final.GetProperty("teardown").GetProperty("confirmed").GetBoolean());
         Assert.Contains("Simulated", final.GetProperty("answer").GetString());
         Assert.Equal(216, final.GetProperty("tokens").GetInt64());
+        Assert.Equal(108, final.GetProperty("draftTokens").GetInt64());
+        Assert.Equal(108, final.GetProperty("answerTokens").GetInt64());
+        Assert.Equal("rehearsal", final.GetProperty("provider").GetString());
+        Assert.Equal("simulated", final.GetProperty("model").GetString());
         Assert.Equal(
             "https://assets.example.invalid",
             Assert.Single(final.GetProperty("blockedOrigins").EnumerateArray()).GetString()
@@ -162,8 +166,7 @@ public sealed class WebAppTests : IDisposable
             source = "simulated",
             state = "completed",
             teardown = "simulated-released",
-            tokens = 10,
-            wallMilliseconds = 20,
+            limits = new { seconds = 30 },
             blockedOrigins = Array.Empty<string>(),
         };
         File.WriteAllText(Path.Combine(selected, "summary.json"), JsonSerializer.Serialize(summary));
@@ -176,6 +179,19 @@ public sealed class WebAppTests : IDisposable
         var item = Assert.Single((await Read(await c.GetAsync("/api/gallery", Token))).EnumerateArray());
         Assert.Equal("catalogue", item.GetProperty("slug").GetString());
         Assert.Equal(JsonValueKind.Null, item.GetProperty("screenshotUrl").ValueKind);
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("limits").ValueKind);
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("tokens").ValueKind);
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("wallMilliseconds").ValueKind);
+        using (
+            var fixture = typeof(HireZero.Engine.Web.WebHost).Assembly.GetManifestResourceStream(
+                "HireZero.Engine.Web.Rehearsal.capture.jpg"
+            )!
+        )
+        using (var file = File.Create(Path.Combine(selected, "capture.jpg")))
+            await fixture.CopyToAsync(file, Token);
+        var photo = await c.GetAsync("/api/gallery/catalogue/capture.jpg", Token);
+        Assert.Equal(HttpStatusCode.OK, photo.StatusCode);
+        Assert.Equal("image/jpeg", photo.Content.Headers.ContentType?.MediaType);
         Assert.Equal(
             HttpStatusCode.NotFound,
             (await c.GetAsync("/api/gallery/catalogue/execution.json", Token)).StatusCode
@@ -201,12 +217,23 @@ public sealed class WebAppTests : IDisposable
             JsonSerializer.Serialize(new { operation = "approve", jobId = id })
         );
         File.WriteAllText(Path.Combine(Data, "jobs", id, "consumed.json"), "{}");
+        var legacyPath = Path.Combine(Data, "jobs", id, "draft.json");
+        var legacy = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(legacyPath))!.AsObject();
+        legacy.Remove("provider");
+        legacy.Remove("model");
+        File.WriteAllText(legacyPath, legacy.ToJsonString());
+        Directory.CreateDirectory(Path.Combine(Data, "network"));
+        File.WriteAllText(Path.Combine(Data, "network", id + ".jsonl"), "{");
         await using var restarted = await Start();
         var csrf2 = await Login(restarted.Client);
         var item = await Read(await restarted.Client.GetAsync("/api/jobs/" + id, Token));
         Assert.Equal("interrupted", item.GetProperty("state").GetString());
         Assert.False(item.GetProperty("canApprove").GetBoolean());
         Assert.False(item.GetProperty("teardown").GetProperty("confirmed").GetBoolean());
+        Assert.False(item.GetProperty("eventsComplete").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("provider").ValueKind);
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("model").ValueKind);
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("answerTokens").ValueKind);
         Assert.Equal(HttpStatusCode.Conflict, (await Post(restarted.Client, "draft", Draft, csrf2)).StatusCode);
         Assert.Single(File.ReadAllLines(Path.Combine(Data, "inference-usage.jsonl")));
     }
@@ -232,6 +259,55 @@ public sealed class WebAppTests : IDisposable
                 (await Post(c, "approve", new { jobId = "none", digest = "none" }, csrf)).StatusCode
             );
         Assert.Equal(HttpStatusCode.TooManyRequests, (await Post(c, "draft", Draft, csrf)).StatusCode);
+    }
+
+    [Fact]
+    public async Task WorkerRequiresItsProxyHostAndHttpsBeforeIssuingAnOwnerCookie()
+    {
+        var origin = new Uri("https://localhost:8443");
+        var options = new WebOptions("worker", 0, Data, null, origin);
+        var app = HireZero.Engine.Web.WebHost.Build(options, Secret);
+        await app.StartAsync(Token);
+        await using var server = new Server(app, new HttpClient { BaseAddress = new Uri(app.Urls.Single()) });
+        var c = server.Client;
+        c.DefaultRequestHeaders.Host = origin.Authority;
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync("/api/session", Token)).StatusCode);
+        c.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
+        c.DefaultRequestHeaders.Host = "unrelated.example.invalid";
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.GetAsync("/api/session", Token)).StatusCode);
+        c.DefaultRequestHeaders.Host = origin.Authority;
+        var response = await c.GetAsync("/api/session", Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
+        Assert.StartsWith("__Host-HireZeroOwner=", cookie);
+        Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("domain=", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(Path.Combine(Data, "inference-usage.jsonl")));
+    }
+
+    [Fact]
+    public async Task ChangingTheSavedPacketCannotAuthorizeTheModifiedInstructions()
+    {
+        await using var server = await Start();
+        var c = server.Client;
+        var csrf = await Login(c);
+        var draft = await Read(await Post(c, "homepage-packet", Draft, csrf));
+        var id = draft.GetProperty("jobId").GetString()!;
+        var path = Path.Combine(Data, "jobs", id, "draft.json");
+        var saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+        var request = saved["packet"]!["request"]!;
+        request["steps"]![1]!["value"] = "main";
+        File.WriteAllText(path, saved.ToJsonString());
+        var forged = CompanyJson.Digest(CompanyJson.Decode<BrowserRequest>(request.ToJsonString()));
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await Post(c, "approve", new { jobId = id, digest = forged }, csrf)).StatusCode
+        );
+        Assert.False(Directory.Exists(Path.Combine(Data, "runs", id)));
+        Assert.False(File.Exists(Path.Combine(Data, "inference-usage.jsonl")));
     }
 
     [Fact]
@@ -267,6 +343,8 @@ public sealed class WebAppTests : IDisposable
         );
         var final = await Read(await Post(c, "approve", new { jobId = id, digest }, csrf));
         Assert.Equal(108, final.GetProperty("tokens").GetInt64());
+        Assert.Equal(0, final.GetProperty("draftTokens").GetInt64());
+        Assert.Equal(108, final.GetProperty("answerTokens").GetInt64());
         Assert.Equal(2, File.ReadAllLines(Path.Combine(Data, "inference-usage.jsonl")).Length);
     }
 

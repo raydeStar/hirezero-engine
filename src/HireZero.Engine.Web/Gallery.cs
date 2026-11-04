@@ -3,6 +3,12 @@ using HireZero.Core;
 
 namespace HireZero.Engine.Web;
 
+internal sealed record GalleryLimits(int? Seconds, int? Requests, int? Bytes)
+{
+    public bool Valid =>
+        Seconds is >= 1 and <= 120 && Requests is >= 1 and <= 100 && Bytes is >= 1 and <= 16 * 1024 * 1024;
+}
+
 internal sealed record GallerySummary(
     string Title,
     string Goal,
@@ -15,7 +21,7 @@ internal sealed record GallerySummary(
     long? WallMilliseconds,
     string[] BlockedOrigins,
     BrowserStep[]? Steps = null,
-    BrowserLimits? Limits = null,
+    GalleryLimits? Limits = null,
     int? AllowedRequests = null,
     string? Provider = null,
     string? CapturedText = null
@@ -94,7 +100,7 @@ internal sealed class Gallery(string? root)
                         s.WallMilliseconds,
                         s.BlockedOrigins,
                         s.Steps,
-                        s.Limits,
+                        limits = s.Limits is { Valid: true } limits ? limits : null,
                         s.AllowedRequests,
                         s.Provider,
                         s.CapturedText,

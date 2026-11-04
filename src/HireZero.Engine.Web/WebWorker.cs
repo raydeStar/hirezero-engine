@@ -14,7 +14,9 @@ internal sealed record Review(
     string Runtime,
     bool Simulated,
     long DraftTokens,
-    DraftedItinerary Packet
+    DraftedItinerary Packet,
+    string? Provider = null,
+    string? Model = null
 );
 
 internal sealed record FinalEvidence(
@@ -130,7 +132,9 @@ internal sealed class WebWorker : IDisposable
                 runtime.Identity,
                 options.Mode == "rehearsal",
                 runtime.Model.Budget.RunUsed,
-                packet
+                packet,
+                runtime.Model.Settings.Provider,
+                runtime.Model.Settings.Model
             );
             Directory.CreateDirectory(Job(id));
             Files.NewJson(Path.Combine(Job(id), "draft.json"), review);
@@ -228,18 +232,16 @@ internal sealed class WebWorker : IDisposable
     private bool CanApprove(string id, string session) =>
         Volatile.Read(ref current) is { } c && c.Id == id && c.Session == session && !File.Exists(ClaimPath);
 
-    private string State(string id, string session, FinalEvidence? final) =>
-        final is not null
-            ? final.Teardown.Confirmed
-                ? final.State
-                : "teardown-unconfirmed"
-            : Volatile.Read(ref running) == id
-                ? "running"
-                : File.Exists(Path.Combine(Job(id), "consumed.json"))
-                    ? "interrupted"
-                    : CanApprove(id, session)
-                        ? "draft"
-                        : "expired";
+    private string State(string id, string session, FinalEvidence? final)
+    {
+        if (final is not null)
+            return final.Teardown.Confirmed ? final.State : "teardown-unconfirmed";
+        if (Volatile.Read(ref running) == id)
+            return "running";
+        if (File.Exists(Path.Combine(Job(id), "consumed.json")))
+            return "interrupted";
+        return CanApprove(id, session) ? "draft" : "expired";
+    }
 
     public object[] List(string session) =>
         Directory
@@ -301,11 +303,32 @@ internal sealed class WebWorker : IDisposable
                 x.Path is null ? null : $"/api/jobs/{id}/captures/{x.Capture.Step}"
             ))
             .ToArray();
-        var events = new BrowserNetworkLog(Path.Combine(root, "network", id + ".jsonl"))
-            .Read()
-            .Where(n => n.JobId == id)
-            .Take(110)
-            .ToArray();
+        var events = new List<BrowserNetworkEvent>();
+        var eventsComplete = true;
+        try
+        {
+            var path = Path.Combine(root, "network", id + ".jsonl");
+            if (File.Exists(path))
+            {
+                var bytes = Files.Read(path, 256 * 1024);
+                if (bytes is null)
+                    eventsComplete = false;
+                else
+                    foreach (
+                        var line in Encoding.UTF8.GetString(bytes).Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                    )
+                    {
+                        var entry = CompanyJson.Decode<BrowserNetworkEvent>(line);
+                        if (entry.JobId == id)
+                            events.Add(entry);
+                    }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or WorkspaceException)
+        {
+            // A partial last line must not hide the saved answer, earlier broker events, or teardown evidence.
+            eventsComplete = false;
+        }
         var origins = (e?.Result?.Blocked ?? [])
             .Where(b => b.Reason == "This request leaves the approved browser websites.")
             .Select(b => b.Url)
@@ -331,6 +354,8 @@ internal sealed class WebWorker : IDisposable
             d.Packet.Request,
             d.Packet.Source,
             d.Packet.Note,
+            d.Provider,
+            d.Model,
             canApprove = CanApprove(id, session),
             state = State(id, session, final),
             answer = final?.Answer ?? (savedAnswer is null ? null : Encoding.UTF8.GetString(savedAnswer)),
@@ -338,8 +363,11 @@ internal sealed class WebWorker : IDisposable
             teardown = new { confirmed = release?.Confirmed ?? false, status = release?.Status ?? "unconfirmed" },
             tokens = final?.Tokens
                 ?? (File.Exists(Path.Combine(Job(id), "consumed.json")) ? (long?)null : d.DraftTokens),
+            draftTokens = d.DraftTokens,
+            answerTokens = final is null ? (long?)null : final.Tokens - d.DraftTokens,
             wallMilliseconds = final?.WallMilliseconds ?? e?.WallMilliseconds,
             blockedOrigins = origins,
+            eventsComplete,
             events = events.Select(n => new
             {
                 n.Outcome,
