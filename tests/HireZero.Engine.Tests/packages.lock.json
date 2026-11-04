@@ -139,6 +139,14 @@
       "hirezero.core": {
         "type": "Project"
       },
+      "hirezero.engine.web": {
+        "type": "Project",
+        "dependencies": {
+          "HireZero.Agent": "[1.0.0, )",
+          "HireZero.Integrations.Sandbox": "[1.0.0, )",
+          "HireZero.Integrations.Web": "[1.0.0, )"
+        }
+      },
       "hirezero.integrations.inference": {
         "type": "Project"
       },

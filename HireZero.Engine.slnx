@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/HireZero.Agent/HireZero.Agent.csproj" />
     <Project Path="src/HireZero.Core/HireZero.Core.csproj" />
+    <Project Path="src/HireZero.Engine.Web/HireZero.Engine.Web.csproj" />
     <Project Path="src/HireZero.Integrations.Inference/HireZero.Integrations.Inference.csproj" />
     <Project Path="src/HireZero.Integrations.Sandbox/HireZero.Integrations.Sandbox.csproj" />
     <Project Path="src/HireZero.Integrations.Web/HireZero.Integrations.Web.csproj" />
