@@ -2,7 +2,7 @@
 
 Use one approved run for the capture, network decisions, teardown and token totals. Keep the same job ID and digest in frame across cuts. Set up the qualified host, the SDK path, the private runs directory (`DEMO_RUNS`) and the provider credentials off camera. Crop private paths, keys and unrelated records.
 
-Shots 1, 2 and 8 can be recorded now. Shots 3–7 can use the owner's local qualification host with the caption **Local WSL · OpenRouter stand-in** throughout. To label those shots **Vultr VM · Vultr Serverless Inference**, capture a separately approved run on the qualified VM. A hosted web app needs its own live capture before it appears in the film. [Runner](../tools/HireZero.Engine.Run/Program.cs) · [VM qualification and inference setup](../deploy/vultr/README.md)
+The [November 4 local evidence](history/2026-11-04-local-browser-run.md) includes one screenshot and a transcript that can be shown together. Shots 1, 2 and 8 can be recorded now. Shots 3–7 can use the owner's local qualification host with the caption **Local WSL · OpenRouter stand-in** throughout. To label those shots **Vultr VM · Vultr Serverless Inference**, capture a separately approved run on the qualified VM. A hosted web app needs its own live capture before it appears in the film. [Runner](../tools/HireZero.Engine.Run/Program.cs) · [VM qualification and inference setup](../deploy/vultr/README.md)
 
 ### 0:00–0:15 · The question (15 s, any host)
 
@@ -34,7 +34,7 @@ dotnet run --project tools/HireZero.Engine.Run -- --goal "What does HireZero hel
 
 ### 2:05–2:40 · Inspect the refusal (35 s, same run)
 
-**Picture.** In the same job's `receipt.json`, open `browser.blockedOffSiteOrigins` and `network.blocked`. When present, show the matching `BLOCKED off-site` console line and point to the origin. A browser observation can precede any broker call. If neither recorded an off-site refusal, show the actual counts and mark the live refusal shot pending. A separate screen of the broker's off-site unit test must be captioned **offline test**. [Runner receipt](../tools/HireZero.Engine.Run/Program.cs) · [Broker refusal test](../tests/HireZero.Engine.Tests/BrowserNetworkLogTests.cs)
+**Picture.** In the same job's `receipt.json`, open `browser.blockedOffSiteOrigins` and `network.blocked`. The November 4 run recorded ten allowed broker requests and zero off-site refusals. For this footage, show the actual counts and the separately labeled test below. If a later approved run records a refusal, show the matching `BLOCKED off-site` console line and point to the origin. A browser observation can precede any broker call. If neither recorded an off-site refusal, show the actual counts and mark the live refusal shot pending. A separate screen of the broker's off-site unit test must be captioned **offline test**. [Runner receipt](../tools/HireZero.Engine.Run/Program.cs) · [Broker refusal test](../tests/HireZero.Engine.Tests/BrowserNetworkLogTests.cs)
 
 **Narration.** If observed: “This origin was outside my approved site. The receipt identifies where the refusal happened. The page capture lets us see how much of the answer survived.” Otherwise: “This run recorded no off-site refusal. Here is the separate offline test that sends an off-site request to the broker and checks it never reaches the transport.”
 
@@ -50,7 +50,7 @@ docker ps -aq --filter label=io.hirezero.browser.installation
 
 ### 3:15–3:45 · Account for the model calls (30 s, same run)
 
-**Picture.** Show `provider`, `model`, `modelCalls` and `tokensThisRun` in the same receipt. Highlight the purpose and outcome of each call, then its actual token fields. Use the reservation explanation only if an outcome is unknown. [Usage accounting](../src/HireZero.Integrations.Inference/InferenceBudget.cs) · [Receipt fields](../tools/HireZero.Engine.Run/Program.cs)
+**Picture.** Show `provider`, `model`, `modelCalls` and `tokensThisRun` in the same receipt. Highlight the purpose and outcome of each call, then its actual token fields. For the November 4 run, show 353 draft tokens and 2,222 answer tokens, 2,575 total. [Usage accounting](../src/HireZero.Integrations.Inference/InferenceBudget.cs) · [Receipt fields](../tools/HireZero.Engine.Run/Program.cs)
 
 **Narration.** “The receipt tells us who served the request and what each call was for. I can read the reported input and output tokens alongside the run's charged total. If a provider's outcome is unknown, the budget keeps the reservation and the client does not automatically retry.”
 

@@ -1,90 +1,54 @@
-# hirezero-engine
+# HireZero Engine
 
-Contained runs for AI agents: a browser and a script runtime that each run one bounded task inside a gVisor
-container with no network interface, no credentials, a time cap and a memory cap, and are torn down afterwards. The
-browser reaches the web only through a host broker that allows approved public HTTPS origins and refuses
-everything else.
+Give the browser agent a question and a public site. It shows the sites, steps and limits it wants to use. Approve the packet by its digest and the runner returns a capture, an answer grounded in the captured text, and a receipt you can inspect. [Agent](src/HireZero.Agent/BrowserTask.cs) · [Terminal runner](tools/HireZero.Engine.Run/Program.cs)
 
-This engine was lifted from [HireZero](https://hirezero.app/), an AI-company workspace, for the Vultr Agent Rush.
-The first commit is that lift; see [What came from HireZero](#what-came-from-hirezero).
-
-## What came from HireZero
-
-Copied from HireZero `main` at `30a8ca9` (Nov 3, 2026), with no behavior changes:
-
-| Path | What it is |
-| --- | --- |
-| `runtime/browser/`, `runtime/sandbox/` | Pinned worker images (Dockerfile, pin, runner, image check) |
-| `runtime/qualification-host/` | Docker and `runsc` (gVisor) settings for the host |
-| `src/HireZero.Integrations.Sandbox/` | Docker adapters: container profile, browser and script runs, qualification, recovery |
-| `src/HireZero.Integrations.Web/` | `PublicBrowserNetwork`, the allowlisting host broker, plus the public-address and robots.txt checks it uses (`WebReader.cs`, trimmed from HireZero's web reader) |
-| `src/HireZero.Core/` | The small contract slice the adapters need (`CompanyJson` copied out of HireZero's `CompanyContracts.cs`) |
-| `tests/` | The matching xUnit and Node tests |
-| `docs/adr/`, `docs/history/` | The decisions and qualification notes behind the runtimes |
-
-Namespaces keep their HireZero names so the lift stays a straight copy.
-
-## Built Nov 3–8, 2026 (Vultr Agent Rush)
-
-Everything after the first commit was built during the event, on the `vultr-agent-rush` branch.
-
-| Date | What | Where |
-| --- | --- | --- |
-| Nov 3 | Config-driven model calls: one OpenAI-compatible client, Vultr Serverless Inference by default with DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`); OpenRouter only as a named local-test option. No retries, `max_tokens` on every call, token use logged per call without prompts, replies or keys | `src/HireZero.Integrations.Inference/` |
-| Nov 3 | Token limits on every call: a per-run limit and a calendar-month limit counted from the usage log, each call reserving its worst case before it is sent; unknown outcomes stay charged in full | `src/HireZero.Integrations.Inference/InferenceBudget.cs` |
-| Nov 3 | Every request the browser asks the broker for is reported as allowed or blocked, with why (`off-site`, `address`, `method` and so on), to a JSON Lines log that drops queries and fragments | `src/HireZero.Integrations.Web/BrowserNetworkLog.cs` |
-| Nov 3 | Containment tests: a key planted in the host environment never reaches the browser container's arguments or input; every task runs under gVisor with no network, 512 MB, 1 CPU and a two-minute cap, and is removed on release | `tests/HireZero.Engine.Tests/BrowserContainmentTests.cs` |
-| Nov 3 | The browser agent: the model drafts a read-only itinerary on sites you name, you approve the exact packet by its digest, the qualified browser runs it once, the result is saved before teardown, and the model answers from the captured text. A receipt lists tokens, allowed and blocked requests, and teardown | `src/HireZero.Agent/`, `tools/HireZero.Engine.Run/` |
-| Nov 3 | Disposable Vultr VM: create and destroy (tagged, `--yes` for anything billable), a pinned and hash-checked host bootstrap, and on-VM browser qualification | [`deploy/vultr/`](deploy/vultr/README.md) |
-| Nov 3 | A live smoke test that makes one call and prints its token use; dry run unless `--live` | `tools/HireZero.Engine.Smoke/` |
-
-### Model provider
-
-Every LLM call goes through `InferenceClient`, configured only from environment variables (see
-[`.env.example`](.env.example)):
-
-| Variable | Default |
-| --- | --- |
-| `VULTR_INFERENCE_API_KEY` | required |
-| `VULTR_INFERENCE_BASE_URL` | `https://api.vultrinference.com/v1` |
-| `HIREZERO_INFERENCE_MODEL` | `deepseek-v4.1-flash-1017` |
-| `HIREZERO_INFERENCE_MAX_OUTPUT_TOKENS` | `24000` (DeepSeek reasons before answering and Vultr cannot turn that off) |
-| `HIREZERO_INFERENCE_TIMEOUT_SECONDS` | `300` |
-| `HIREZERO_INFERENCE_REASONING_EFFORT` | `low` (`minimal`, `low`, `medium` or `high`) |
-| `HIREZERO_INFERENCE_RUN_TOKEN_LIMIT` | `200000` tokens per run |
-| `HIREZERO_INFERENCE_MONTHLY_TOKEN_LIMIT` | `20000000` tokens per calendar month (UTC), from `receipts/inference-usage.jsonl` |
-| `HIREZERO_INFERENCE_PROVIDER` | `vultr`; `openrouter` with `OPENROUTER_API_KEY` for local tests only |
-
-A call is refused before it is sent when its worst case (every input byte a token, 256 tokens of framing, and its
-full output limit) would pass either limit. Afterwards it is charged what the provider reported, nothing for a
-refusal, or its whole worst case when the outcome is unknown, since an unconfirmed call may still be billed.
-
-```sh
-dotnet run --project tools/HireZero.Engine.Smoke            # dry run: shows the provider, sends nothing
-dotnet run --project tools/HireZero.Engine.Smoke -- --live  # one call through Vultr, token use to receipts/
+```mermaid
+flowchart LR
+    M["Model · Vultr Serverless Inference (deployment target)"]
+    A["Host agent · owner approves packet"]
+    B["Chromium · gVisor · network disabled"]
+    H["Host broker · origin allowlist, DNS, robots and event log"]
+    R["Private receipts · captures, decisions, tokens and release"]
+    A <-->|draft and answer| M
+    A -->|approved steps| B
+    B <-->|intercepted GET and response| H
+    H -->|broker decisions| R
+    B -->|captures and observed refusals via agent| R
+    A -->|usage and teardown| R
 ```
 
-### Containment
+### What enforces the boundary?
 
-| Rule | How it holds | Proof |
-| --- | --- | --- |
-| No credentials in the sandbox | The container gets no environment variables, env files, mounts or volumes; model keys live only in the host process | `NoHostCredentialReachesTheBrowserSandbox` |
-| Time and memory caps | Each itinerary is capped at 120 seconds; the container gets 512 MB with no swap, 1 CPU and 128 processes | `EveryBrowserTaskIsCappedIsolatedAndTornDown` |
-| Teardown after every task | The result is kept, then the container is removed by its exact name, image and labels | same test; a real run is `ThePinnedBrowserRunsBoundedItinerariesAndReleasesItsRealResources` (needs the image) |
-| Outbound network restricted | `--network none` under gVisor; the only way out is the host broker, which allows approved public HTTPS origins and logs every blocked request | `BrowserNetworkLogTests` |
+| Question | Enforcement and proof |
+| --- | --- |
+| Can page text change the itinerary? | The agent validates the draft before approval. The answer request contains captured text and has no tools. Tests inject a navigation instruction, try an unapproved origin, a private address, `file:` and `javascript:`, and try to spend an approval twice. [Agent scope tests](tests/HireZero.Engine.Tests/BrowserTaskTests.cs) |
+| Can the browser call another site? | Chromium runs with `--network none` and checks the origin before asking the broker. The broker independently checks the origin, public address, GET method, crawl policy and budgets. The receipt separates worker-observed off-site origins from broker refusals. [Driver](runtime/browser/driver.mjs) · [Broker](src/HireZero.Integrations.Web/PublicBrowserNetwork.cs) · [Refusal tests](tests/HireZero.Engine.Tests/BrowserNetworkLogTests.cs) |
+| What gets into the sandbox? | The container has a read-only root, no host credentials or mounts, 512 MiB, one CPU and a 128-process cap. Each browser packet has a deadline of at most 120 seconds. Tests inspect the actual arguments constructed for Docker and look for a planted credential in the worker input. [Containment tests](tests/HireZero.Engine.Tests/BrowserContainmentTests.cs) · [Packet limits](src/HireZero.Core/Browser.cs) |
+| What survives a run? | The runner writes the execution and JPEGs, records release, then requests an answer if it has text. The real-image qualification checks bounded capture, recovery, timeout, cancellation and removal on the specific engine. [Run sequence](src/HireZero.Agent/BrowserTask.cs) · [Real-image test](tests/HireZero.Engine.Tests/BrowserRuntimeTests.cs) |
 
-The real-image tests still need a qualification run on the Vultr VM.
+**Observed locally on November 4.** A newly qualified gVisor browser read the HireZero homepage in 14.429 seconds. The owner-approved run produced a JPEG and an answer, used 2,575 OpenRouter tokens, and left zero labeled browser containers. The broker allowed ten requests and refused none. [Run summary](docs/history/2026-11-04-local-browser-run.md)
 
-## Checks
+### Quickstart
 
-All checks are offline; none calls a model. Tests that need a real container image or Chrome skip unless their opt-in variable is set.
+With the pinned .NET SDK and Node installed, run the offline checks from the repo root. The opt-in runtime tests require a separately qualified host. [SDK](global.json) · [Tests](tests/)
 
 ```sh
 dotnet test --solution HireZero.Engine.slnx
 node --test tests/*.test.mjs
-dotnet csharpier check .
 ```
 
-## License
+For a real browser task, use the [host setup and qualification runbook](deploy/vultr/README.md). Set the provider key and qualification receipt in the host environment and choose an absolute private `DEMO_RUNS` directory outside the checkout. The command drafts first and waits for you to type eight digest characters before starting Chromium. [Environment settings](.env.example) · [Runner options](tools/HireZero.Engine.Run/Program.cs)
 
-MIT. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
+```sh
+dotnet run --project tools/HireZero.Engine.Run -- --goal "What does HireZero help a user do?" --site https://hirezero.app --runs "$DEMO_RUNS"
+```
+
+### What came from HireZero
+
+The [original import](https://github.com/raydeStar/hirezero-engine/commit/0b9c5532bd23352d1e4e00482a74143f6ac97021) brought the pinned [browser](runtime/browser/) and [script](runtime/sandbox/) workers, [Docker adapters](src/HireZero.Integrations.Sandbox/), public-web broker and their qualification history. The [October local script checks](docs/history/2026-10-27-script-task-accounting-correction.md) apply to the recorded host and image.
+
+### Built during Agent Rush · November 3–8, 2026
+
+The event branch adds the [browser agent](src/HireZero.Agent/BrowserTask.cs), [broker event log](src/HireZero.Integrations.Web/BrowserNetworkLog.cs), [inference client and run/month token limits](src/HireZero.Integrations.Inference/), and [disposable VM scripts](deploy/vultr/README.md). Vultr is the configured deployment provider. OpenRouter serves as the local stand-in. The [Ubuntu dry run](docs/history/2026-11-04-bootstrap-dry-run.md) verifies downloads and package simulation. Hosted VM, Vultr inference and HTTPS web-app evidence are pending. [Web design](docs/history/2026-11-04-web-proposal.md) · [Demo script](docs/demo-script.md) · [Submission draft](docs/submission.md)
+
+[MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)
