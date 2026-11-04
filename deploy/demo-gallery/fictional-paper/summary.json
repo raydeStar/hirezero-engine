@@ -1,0 +1,20 @@
+{
+  "title": "Paper catalog fixture",
+  "goal": "Which paper products does the sample catalog list?",
+  "site": "https://paper.example.invalid",
+  "answer": "The fictional catalog lists notebooks and stationery.",
+  "source": "Fictional example for local setup",
+  "state": "simulated",
+  "teardown": "Simulated",
+  "tokens": 0,
+  "wallMilliseconds": 0,
+  "blockedOrigins": [],
+  "allowedRequests": 0,
+  "provider": "Offline fixture",
+  "steps": [
+    { "action": "navigate", "value": "https://paper.example.invalid/" },
+    { "action": "read", "value": "main" }
+  ],
+  "limits": { "seconds": 90, "requests": 40, "bytes": 8388608 },
+  "capturedText": "Fictional fixture: notebooks and stationery."
+}
