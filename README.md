@@ -32,6 +32,8 @@ Everything after the first commit was built during the event, on the `vultr-agen
 | --- | --- | --- |
 | Nov 3 | Config-driven model calls: one OpenAI-compatible client, Vultr Serverless Inference by default with DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`); OpenRouter only as a named local-test option. No retries, `max_tokens` on every call, token use logged per call without prompts, replies or keys | `src/HireZero.Integrations.Inference/` |
 | Nov 3 | Token limits on every call: a per-run limit and a calendar-month limit counted from the usage log, each call reserving its worst case before it is sent; unknown outcomes stay charged in full | `src/HireZero.Integrations.Inference/InferenceBudget.cs` |
+| Nov 3 | Every request the browser asks the broker for is reported as allowed or blocked, with why (`off-site`, `address`, `method` and so on), to a JSON Lines log that drops queries and fragments | `src/HireZero.Integrations.Web/BrowserNetworkLog.cs` |
+| Nov 3 | Containment tests: a key planted in the host environment never reaches the browser container's arguments or input; every task runs under gVisor with no network, 512 MB, 1 CPU and a two-minute cap, and is removed on release | `tests/HireZero.Engine.Tests/BrowserContainmentTests.cs` |
 | Nov 3 | A live smoke test that makes one call and prints its token use; dry run unless `--live` | `tools/HireZero.Engine.Smoke/` |
 
 ### Model provider
@@ -59,6 +61,17 @@ refusal, or its whole worst case when the outcome is unknown, since an unconfirm
 dotnet run --project tools/HireZero.Engine.Smoke            # dry run: shows the provider, sends nothing
 dotnet run --project tools/HireZero.Engine.Smoke -- --live  # one call through Vultr, token use to receipts/
 ```
+
+### Containment
+
+| Rule | How it holds | Proof |
+| --- | --- | --- |
+| No credentials in the sandbox | The container gets no environment variables, env files, mounts or volumes; model keys live only in the host process | `NoHostCredentialReachesTheBrowserSandbox` |
+| Time and memory caps | Each itinerary is capped at 120 seconds; the container gets 512 MB with no swap, 1 CPU and 128 processes | `EveryBrowserTaskIsCappedIsolatedAndTornDown` |
+| Teardown after every task | The result is kept, then the container is removed by its exact name, image and labels | same test; a real run is `ThePinnedBrowserRunsBoundedItinerariesAndReleasesItsRealResources` (needs the image) |
+| Outbound network restricted | `--network none` under gVisor; the only way out is the host broker, which allows approved public HTTPS origins and logs every blocked request | `BrowserNetworkLogTests` |
+
+The real-image tests still need a qualification run on the Vultr VM.
 
 ## Checks
 

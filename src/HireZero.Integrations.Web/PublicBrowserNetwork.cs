@@ -23,9 +23,18 @@ public sealed partial class WebReader
         };
 }
 
-// One company job owns one short-lived broker. The browser itself will have no network interface.
+// One company job owns one short-lived broker. The browser itself will have no network interface. Every request the
+// browser asks for is reported to the optional observer as allowed or blocked, with the reason it was blocked.
 public sealed class PublicBrowserNetwork : IBrowserNetworkSession
 {
+    // A refusal this broker makes itself, labelled so the event log can say why.
+    private sealed class Blocked(string kind, string message, int status) : WorkspaceException(message, status)
+    {
+        public string Kind { get; } = kind;
+    }
+
+    private readonly string _jobId;
+    private readonly Action<BrowserNetworkEvent>? _observe;
     private readonly HashSet<string> _origins;
     private readonly BrowserLimits _limits;
     private readonly Func<bool> _authorized;
@@ -38,9 +47,16 @@ public sealed class PublicBrowserNetwork : IBrowserNetworkSession
         _refused;
     private long _bytes;
 
-    public PublicBrowserNetwork(BrowserRequest scope, Func<bool> stillAuthorized, HttpMessageHandler? handler = null)
+    public PublicBrowserNetwork(
+        BrowserRequest scope,
+        Func<bool> stillAuthorized,
+        HttpMessageHandler? handler = null,
+        Action<BrowserNetworkEvent>? observe = null
+    )
     {
         scope.Validate();
+        _jobId = scope.JobId;
+        _observe = observe;
         _origins = scope
             .Origins.Select(BrowserRequest.Address)
             .Select(BrowserRequest.Origin)
@@ -59,15 +75,23 @@ public sealed class PublicBrowserNetwork : IBrowserNetworkSession
     {
         token.ThrowIfCancellationRequested();
         if (!_authorized())
-            throw new WorkspaceException("Browser authority was revoked.", 403);
+            throw new Blocked("revoked", "Browser authority was revoked.", 403);
     }
 
     private Uri Allowed(string address)
     {
-        var uri = BrowserRequest.Address(address);
-        WebReader.Checked(address);
+        Uri uri;
+        try
+        {
+            uri = BrowserRequest.Address(address);
+            WebReader.Checked(address);
+        }
+        catch (WorkspaceException error) when (error is not Blocked)
+        {
+            throw new Blocked("address", error.Message, error.Status);
+        }
         if (!_origins.Contains(BrowserRequest.Origin(uri)))
-            throw new WorkspaceException("This request leaves the approved browser websites.", 403);
+            throw new Blocked("off-site", "This request leaves the approved browser websites.", 403);
         return uri;
     }
 
@@ -171,7 +195,7 @@ public sealed class PublicBrowserNetwork : IBrowserNetworkSession
             if (++_calls > _limits.Requests)
                 throw new WorkspaceException("The browser resource allowance is exhausted.", 429);
             if (request is null || request.Method != "GET")
-                throw new WorkspaceException("Browser work may only read public resources with GET.", 403);
+                throw new Blocked("method", "Browser work may only read public resources with GET.", 403);
             var uri = Allowed(request.Url);
             await WebReader.BrowserResearchGate.WaitAsync(cancel.Token);
             researchAcquired = true;
@@ -183,6 +207,7 @@ public sealed class PublicBrowserNetwork : IBrowserNetworkSession
             if (status is >= 300 and < 400 && response.Headers.Location is { } location)
             {
                 headers["Location"] = Allowed(new Uri(uri, location).AbsoluteUri).AbsoluteUri;
+                Observe(request, BrowserNetworkEvent.Allowed, "redirect", status, null);
                 return new(status, headers, "", DateTimeOffset.UtcNow);
             }
             if (status is 401 or 403 or 407 or 429 || response.Content.Headers.ContentDisposition is not null)
@@ -234,19 +259,28 @@ public sealed class PublicBrowserNetwork : IBrowserNetworkSession
                         headers[name] = value;
                 }
             var body = await BodyAsync(response, BrowserRequest.ResourceBytes, cancel.Token);
+            Observe(request, BrowserNetworkEvent.Allowed, "page", status, null);
             return new(status, headers, Convert.ToBase64String(body), DateTimeOffset.UtcNow);
         }
         catch (OperationCanceledException)
         {
-            return Refused("The browser was canceled or its deadline expired.");
+            return Refused(request, "deadline", "The browser was canceled or its deadline expired.");
+        }
+        catch (Blocked error)
+        {
+            return Refused(request, error.Kind, error.Message);
         }
         catch (WorkspaceException error)
         {
-            return Refused(error.Message);
+            return Refused(request, "refused", error.Message);
         }
         catch (Exception error) when (error is HttpRequestException or IOException or DecoderFallbackException)
         {
-            return Refused("The public browser resource could not be read. No retry was attempted.");
+            return Refused(
+                request,
+                "unreadable",
+                "The public browser resource could not be read. No retry was attempted."
+            );
         }
         finally
         {
@@ -257,10 +291,34 @@ public sealed class PublicBrowserNetwork : IBrowserNetworkSession
         }
     }
 
-    private BrowserResourceReply Refused(string reason)
+    private BrowserResourceReply Refused(BrowserResourceRequest? request, string kind, string reason)
     {
         Interlocked.Increment(ref _refused);
+        Observe(request, BrowserNetworkEvent.Blocked, kind, null, reason);
         return new(0, [], "", DateTimeOffset.UtcNow, reason);
+    }
+
+    // A failing log never changes what the browser receives: the refusal has already happened.
+    private void Observe(BrowserResourceRequest? request, string outcome, string kind, int? status, string? reason)
+    {
+        if (_observe is null)
+            return;
+        try
+        {
+            _observe(
+                new(
+                    DateTimeOffset.UtcNow,
+                    _jobId,
+                    outcome,
+                    kind,
+                    request?.Method is { Length: > 0 and <= 16 } method ? method : "",
+                    BrowserNetworkEvent.Redact(request?.Url),
+                    status,
+                    reason
+                )
+            );
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
     public void Dispose()
