@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using HireZero.Core;
 using HireZero.Integrations.Inference;
@@ -43,12 +44,7 @@ public static class WebHost
             k.Listen(IPAddress.Loopback, options.Port);
         });
         builder.Services.ConfigureHttpJsonOptions(o =>
-            o.SerializerOptions.UnmappedMemberHandling = System
-                .Text
-                .Json
-                .Serialization
-                .JsonUnmappedMemberHandling
-                .Disallow
+            o.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
         );
         builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true);
         builder.Services.AddRateLimiter(r =>
@@ -153,7 +149,13 @@ public static class WebHost
             async (ctx, next) =>
             {
                 var p = ctx.Request.Path;
-                if (p.StartsWithSegments("/api/jobs") || p == "/api/draft" || p == "/api/approve" || p == "/api/logout")
+                if (
+                    p.StartsWithSegments("/api/jobs")
+                    || p.StartsWithSegments("/api/draft")
+                    || p.StartsWithSegments("/api/homepage-packet")
+                    || p.StartsWithSegments("/api/approve")
+                    || p.StartsWithSegments("/api/logout")
+                )
                     sessions.Require(ctx);
                 if (ctx.Request.Method == "POST" && p.StartsWithSegments("/api"))
                 {
@@ -170,6 +172,11 @@ public static class WebHost
             .RequireRateLimiting("login");
         app.MapPost("/api/logout", (HttpContext ctx) => sessions.SignOut(ctx));
         app.MapPost("/api/draft", (HttpContext ctx, DraftBody b) => worker.Draft(b.Goal, b.Site, sessions.Require(ctx)))
+            .RequireRateLimiting("paid");
+        app.MapPost(
+                "/api/homepage-packet",
+                (HttpContext ctx, DraftBody b) => worker.Draft(b.Goal, b.Site, sessions.Require(ctx), homepage: true)
+            )
             .RequireRateLimiting("paid");
         app.MapPost(
                 "/api/approve",

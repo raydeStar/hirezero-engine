@@ -52,7 +52,15 @@ internal sealed class WebWorker : IDisposable
     {
         this.options = options;
         root = options.Data!;
-        Directory.CreateDirectory(root);
+        if (OperatingSystem.IsWindows())
+            Directory.CreateDirectory(root);
+        else
+        {
+            const UnixFileMode owner = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            Directory.CreateDirectory(root, owner);
+            if ((File.GetUnixFileMode(root) & ~owner) != 0)
+                throw new ArgumentException("The private worker data directory must have Unix mode 0700.");
+        }
         if (!Files.Plain(root))
             throw new ArgumentException("Private data must be an ordinary directory.");
         instance = new FileStream(
@@ -89,7 +97,7 @@ internal sealed class WebWorker : IDisposable
             throw new WorkspaceException("An earlier operation needs operator review before another paid action.", 409);
     }
 
-    public async Task<object> Draft(string? goal, string? site, string session)
+    public async Task<object> Draft(string? goal, string? site, string session, bool homepage = false)
     {
         goal = ContentGuard.Bounded(goal, 1000);
         var uri = BrowserRequest.Address(site ?? "");
@@ -102,8 +110,18 @@ internal sealed class WebWorker : IDisposable
         {
             CheckClear();
             runtime = await WebRuntime.Create(options, usage);
-            Files.NewJson(ClaimPath, new Claim("draft", null));
-            var packet = await runtime.Task.DraftAsync(goal, [site], CancellationToken.None);
+            DraftedItinerary packet;
+            if (homepage)
+                packet = new(
+                    BrowserTask.HomepageRequest([site]),
+                    "owner-template",
+                    "Owner selected the fixed homepage packet. Drafting used zero model calls."
+                );
+            else
+            {
+                Files.NewJson(ClaimPath, new Claim("draft", null));
+                packet = await runtime.Task.DraftAsync(goal, [site], CancellationToken.None);
+            }
             var id = packet.Request.JobId;
             var review = new Review(
                 goal,
@@ -116,7 +134,8 @@ internal sealed class WebWorker : IDisposable
             );
             Directory.CreateDirectory(Job(id));
             Files.NewJson(Path.Combine(Job(id), "draft.json"), review);
-            File.Delete(ClaimPath);
+            if (!homepage)
+                File.Delete(ClaimPath);
             Interlocked.Exchange(ref current, new(id, session, CompanyJson.Digest(review), runtime))?.Runtime.Dispose();
             runtime = null;
             return new
@@ -228,7 +247,7 @@ internal sealed class WebWorker : IDisposable
             .OrderByDescending(Directory.GetCreationTimeUtc)
             .Select(Path.GetFileName)
             .OfType<string>()
-            .Where(id => Guid.TryParseExact(id, "N", out _))
+            .Where(id => Guid.TryParseExact(id, "N", out _) && File.Exists(Path.Combine(Job(id), "draft.json")))
             .Take(50)
             .Select(id =>
             {

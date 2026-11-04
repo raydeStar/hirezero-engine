@@ -11,8 +11,8 @@ internal sealed record GallerySummary(
     string Source,
     string State,
     string Teardown,
-    long Tokens,
-    long WallMilliseconds,
+    long? Tokens,
+    long? WallMilliseconds,
     string[] BlockedOrigins,
     BrowserStep[]? Steps = null,
     BrowserLimits? Limits = null,
@@ -46,8 +46,8 @@ internal sealed class Gallery(string? root)
                 && Fits(s.State, 80)
                 && Fits(s.Answer, 16000)
                 && Fits(s.Teardown, 200)
-                && s.Tokens >= 0
-                && s.WallMilliseconds >= 0
+                && s.Tokens is not < 0
+                && s.WallMilliseconds is not < 0
                 && s.BlockedOrigins is { Length: <= 40 }
                 && s.BlockedOrigins.All(o => Fits(o, 300))
                 && (
