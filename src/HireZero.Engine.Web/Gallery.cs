@@ -24,7 +24,9 @@ internal sealed record GallerySummary(
     GalleryLimits? Limits = null,
     int? AllowedRequests = null,
     string? Provider = null,
-    string? CapturedText = null
+    string? CapturedText = null,
+    int? RefusedRequests = null,
+    string? CaptureCredit = null
 );
 
 internal sealed class Gallery(string? root)
@@ -64,6 +66,8 @@ internal sealed class Gallery(string? root)
                 && s.Provider?.Length is not > 120
                 && s.CapturedText?.Length is not > 8000
                 && s.AllowedRequests is not < 0
+                && s.RefusedRequests is not < 0
+                && s.CaptureCredit?.Length is not > 400
                 ? s
                 : null;
         }
@@ -102,6 +106,8 @@ internal sealed class Gallery(string? root)
                         s.Steps,
                         limits = s.Limits is { Valid: true } limits ? limits : null,
                         s.AllowedRequests,
+                        s.RefusedRequests,
+                        s.CaptureCredit,
                         s.Provider,
                         s.CapturedText,
                         screenshotUrl = ImageFile(slug) is null ? null : "/api/gallery/" + slug + "/capture.jpg",

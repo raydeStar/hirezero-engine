@@ -1,6 +1,6 @@
 # ADR 0147 · Single-owner web interface on the demo VM
 
-**Accepted November 4, 2026.** The owner selected the [web proposal](../history/2026-11-04-web-proposal.md). Implementation and hosted verification are pending.
+**Accepted November 4, 2026.** The owner selected the [web proposal](../history/2026-11-04-web-proposal.md). The [implemented desk](../../src/HireZero.Engine.Web/) completed a [qualified local web run](../history/2026-11-04-web-browser-run.md). Verification on the intended Vultr VM is pending.
 
 ## Context
 

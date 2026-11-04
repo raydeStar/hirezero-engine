@@ -160,6 +160,8 @@ public sealed class WebAppTests : IDisposable
         var summary = new
         {
             title = "Fictional gallery",
+            captureCredit = "Fictional Paper Catalogue",
+            refusedRequests = 1,
             goal = "Read",
             site = "https://catalogue.example.invalid",
             answer = "Paper",
@@ -178,6 +180,8 @@ public sealed class WebAppTests : IDisposable
         var c = server.Client;
         var item = Assert.Single((await Read(await c.GetAsync("/api/gallery", Token))).EnumerateArray());
         Assert.Equal("catalogue", item.GetProperty("slug").GetString());
+        Assert.Equal("Fictional Paper Catalogue", item.GetProperty("captureCredit").GetString());
+        Assert.Equal(1, item.GetProperty("refusedRequests").GetInt32());
         Assert.Equal(JsonValueKind.Null, item.GetProperty("screenshotUrl").ValueKind);
         Assert.Equal(JsonValueKind.Null, item.GetProperty("limits").ValueKind);
         Assert.Equal(JsonValueKind.Null, item.GetProperty("tokens").ValueKind);

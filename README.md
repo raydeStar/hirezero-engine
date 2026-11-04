@@ -1,6 +1,6 @@
 # HireZero Engine
 
-Give the browser agent a question and a public site. It shows the sites, steps and limits it wants to use. Approve the packet by its digest and the runner returns a capture, an answer grounded in the captured text, and a receipt you can inspect. [Agent](src/HireZero.Agent/BrowserTask.cs) · [Terminal runner](tools/HireZero.Engine.Run/Program.cs)
+A product marketer can check what a product page actually promises before drafting copy. Give the browser agent a question and a public site. Review the proposed steps, origin and limits, then approve the packet by its digest. Compare the answer with the captured page and inspect the network decisions and teardown. A signed-out judge can explore selected runs. [Web desk](src/HireZero.Engine.Web/) · [Agent](src/HireZero.Agent/BrowserTask.cs)
 
 ```mermaid
 flowchart LR
@@ -9,6 +9,8 @@ flowchart LR
     B["Chromium · gVisor · network disabled"]
     H["Host broker · origin allowlist, DNS, robots and event log"]
     R["Private receipts · captures, decisions, tokens and release"]
+    O["Signed-in owner · HTTPS web desk"] --> A
+    J["Judge · read-only gallery"] --> G["Operator-selected summaries and screenshots"]
     A <-->|draft and answer| M
     A -->|approved steps| B
     B <-->|intercepted GET and response| H
@@ -26,9 +28,11 @@ flowchart LR
 | What gets into the sandbox? | The container has a read-only root, no host credentials or bind mounts, 512 MiB, one CPU and a 128-process cap. Each browser packet has a deadline of at most 120 seconds. Tests inspect the actual arguments constructed for Docker and look for a planted credential in the worker input. [Containment tests](tests/HireZero.Engine.Tests/BrowserContainmentTests.cs) · [Packet limits](src/HireZero.Core/Browser.cs) |
 | What survives a run? | The runner writes the execution and JPEGs, records release, then requests an answer if it has text. The real-image qualification checks bounded capture, recovery, timeout, cancellation and removal on the specific engine. [Run sequence](src/HireZero.Agent/BrowserTask.cs) · [Real-image test](tests/HireZero.Engine.Tests/BrowserRuntimeTests.cs) |
 
-**Observed locally on November 4.** A newly qualified gVisor browser read the HireZero homepage in 14.429 seconds. The owner-approved run produced a JPEG and an answer, used 2,575 OpenRouter tokens, and left zero labeled browser containers. The broker allowed ten requests and refused none. [Run summary](docs/history/2026-11-04-local-browser-run.md)
+**Observed locally on November 4.** A model-drafted HireZero homepage task captured the product's claims in 14.429 s, with ten allowed requests and 2,575 OpenRouter tokens. A second, web-approved task on Choose a License identified the MIT License in the captured page. Chromium refused Google Fonts before the broker. The broker separately refused the favicon. That browser took 10.899 s, and the answer used 617 tokens. Both runs finished with zero labeled browser containers. [HireZero run](docs/history/2026-11-04-local-browser-run.md) · [Choose a License run](docs/history/2026-11-04-web-browser-run.md)
 
 ### Quickstart
+
+Start the [local web rehearsal](deploy/vultr/web.md#local-demo) to try the full owner flow with fictional data and no model charges. For judges, run [gallery mode](deploy/vultr/web.md#public-gallery) under a separate account with access only to operator-selected summaries and screenshots. The owner worker is the only web process with execution authority. [HTTP boundary tests](tests/HireZero.Engine.Tests/WebAppTests.cs)
 
 With the pinned .NET SDK and Node installed, run the offline checks from the repo root. The opt-in runtime tests require a separately qualified host. [SDK](global.json) · [Tests](tests/)
 
@@ -51,6 +55,6 @@ The [original import](https://github.com/raydeStar/hirezero-engine/commit/0b9c55
 
 ### Built during Agent Rush · November 3–8, 2026
 
-The event branch adds the [browser agent](src/HireZero.Agent/BrowserTask.cs), [broker event log](src/HireZero.Integrations.Web/BrowserNetworkLog.cs), [inference client and run/month token limits](src/HireZero.Integrations.Inference/), and [disposable VM scripts](deploy/vultr/README.md). Vultr is the configured deployment provider. OpenRouter serves as the local stand-in. The [Ubuntu dry run](docs/history/2026-11-04-bootstrap-dry-run.md) verifies downloads and package simulation. Hosted VM, Vultr inference and HTTPS web-app evidence are pending. [Web design](docs/history/2026-11-04-web-proposal.md) · [Demo script](docs/demo-script.md) · [Submission draft](docs/submission.md)
+The event branch adds the [browser agent](src/HireZero.Agent/BrowserTask.cs), [broker event log](src/HireZero.Integrations.Web/BrowserNetworkLog.cs), [inference client and budgets](src/HireZero.Integrations.Inference/), [owner desk and judge gallery](src/HireZero.Engine.Web/) and [VM tooling](deploy/vultr/README.md). The target is one Vultr Cloud Compute VM serving HTTPS and orchestrating the sandbox, with all agent model calls through Vultr Serverless Inference. The [Ubuntu bootstrap dry run](docs/history/2026-11-04-bootstrap-dry-run.md) and the two local WSL/OpenRouter runs are complete. Actual Vultr hosting, inference and a public demo URL are pending credits. [Hosted web setup](deploy/vultr/web.md) · [Competition audit](docs/history/2026-11-04-competition-audit.md) · [Submission draft](docs/submission.md)
 
 [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)

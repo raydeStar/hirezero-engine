@@ -1,5 +1,7 @@
 # Demo script · 4 minutes 30 seconds
 
+**Recording update, November 4.** This is the original terminal shot list. The local cut also shows the working web UI. Its HireZero chapter uses the model-drafted run and its Choose a License chapter shows a separately approved homepage packet, a real Google Fonts refusal, the MIT result and release. The screen identifies the site, local host and OpenRouter provider for each run. [Web run and accounting](history/2026-11-04-web-browser-run.md) · [HireZero run](history/2026-11-04-local-browser-run.md)
+
 Use one approved run for the capture, network decisions, teardown and token totals. Keep the same job ID and digest in frame across cuts. Set up the qualified host, the SDK path, the private runs directory (`DEMO_RUNS`) and the provider credentials off camera. Crop private paths, keys and unrelated records.
 
 The [November 4 local evidence](history/2026-11-04-local-browser-run.md) includes one screenshot and a transcript that can be shown together. Shots 1, 2 and 8 can be recorded now. Shots 3–7 can use the owner's local qualification host with the caption **Local WSL · OpenRouter stand-in** throughout. To label those shots **Vultr VM · Vultr Serverless Inference**, capture a separately approved run on the qualified VM. A hosted web app needs its own live capture before it appears in the film. [Runner](../tools/HireZero.Engine.Run/Program.cs) · [VM qualification and inference setup](../deploy/vultr/README.md)

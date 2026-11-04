@@ -1,7 +1,6 @@
 # Running the engine on a Vultr VM
 
-The VM is disposable. Create it for a working session and destroy it at the end. A Vultr VM bills by the hour
-until it is destroyed, whether or not it is running, so these scripts have no "stop".
+The VM is disposable. Keep the submitted demo available for the agreed judging window, then destroy the VM. A Vultr VM bills until destroyed. The [web runbook](web.md) covers the owner worker, the read-only public gallery, TLS and the 443 firewall rule.
 
 | Plan (default) | Size | Price |
 | --- | --- | --- |

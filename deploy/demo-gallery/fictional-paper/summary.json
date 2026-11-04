@@ -10,6 +10,7 @@
   "wallMilliseconds": 0,
   "blockedOrigins": [],
   "allowedRequests": 0,
+  "refusedRequests": 0,
   "provider": "Offline fixture",
   "steps": [
     { "action": "navigate", "value": "https://paper.example.invalid/" },

@@ -264,6 +264,8 @@ function result(job) {
     specs([
       ["Allowed origin", job.site],
       ["State", job.state],
+      ["Inference provider", job.provider],
+      ["Model", job.model],
       ["Sandbox release", job.teardown?.status],
       [
         "Confirmed",
@@ -273,7 +275,11 @@ function result(job) {
             ? "Yes"
             : "No",
       ],
-      ["Model tokens", format(job.tokens)],
+      ["Charged tokens", format(job.tokens)],
+      [
+        "Planning / answer",
+        format(job.draftTokens) + " / " + format(job.answerTokens),
+      ],
       ["Browser time", seconds(job.wallMilliseconds)],
     ]),
   );
@@ -342,6 +348,14 @@ function result(job) {
           : "No blocked off-site origins recorded.",
       ),
     );
+    if (job.eventsComplete === false)
+      network.append(
+        el(
+          "p",
+          "hint",
+          "The broker log is incomplete. Only available events are shown.",
+        ),
+      );
     for (const e of job.events ?? [])
       network.append(
         el(

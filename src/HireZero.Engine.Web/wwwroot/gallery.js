@@ -55,7 +55,8 @@ function lead(run, number, photo) {
       el(
         "figcaption",
         "",
-        "Captured by the isolated browser · open full image",
+        run.captureCredit ||
+          "Captured by the isolated browser · open full image",
       ),
     );
     hero.append(preview);
@@ -113,6 +114,7 @@ function galleryCard(target, run, number) {
         card(
           "Captured evidence",
           el("p", "bodycopy", run.capturedText || "No text excerpt selected."),
+          ...(run.captureCredit ? [el("p", "hint", run.captureCredit)] : []),
           ...(photo
             ? [
                 imageLink(
@@ -130,6 +132,7 @@ function galleryCard(target, run, number) {
           "Network decisions",
           specs([
             ["Allowed by broker", run.allowedRequests],
+            ["Refused by broker", run.refusedRequests],
             [
               "Off-site origins observed",
               run.blockedOrigins?.length
