@@ -117,6 +117,17 @@ if (approved != itinerary.Digest)
 var outcome = await task.RunAsync(itinerary, approved, goal, CancellationToken.None);
 var execution = outcome.Execution;
 var events = network.Read().Where(e => e.JobId == itinerary.Request.JobId).ToArray();
+
+// Chromium can refuse a subresource before the broker ever sees it. Keep that evidence separate and
+// show only the origin: a tracking URL's query string hardly belongs on the silver platter.
+var browserBlockedOrigins = (execution.Result?.Blocked ?? [])
+    .Where(b => b.Reason == "This request leaves the approved browser websites.")
+    .Select(b => Uri.TryCreate(b.Url, UriKind.Absolute, out var url) ? url : null)
+    .OfType<Uri>()
+    .Where(url => url.Scheme == Uri.UriSchemeHttps && url.IsDefaultPort && url.HostNameType == UriHostNameType.Dns)
+    .Select(BrowserRequest.Origin)
+    .Except(itinerary.Request.Origins, StringComparer.Ordinal)
+    .ToArray();
 var calls = usage.Read().Where(e => e.At >= began).ToArray();
 
 Console.WriteLine();
@@ -126,10 +137,12 @@ Console.WriteLine(
 foreach (var capture in execution.Result?.Captures ?? [])
     Console.WriteLine($"  read step {capture.Step}: {capture.Title} ({capture.Url}), {capture.Text.Length} characters");
 Console.WriteLine(
-    $"Network: {events.Count(e => e.Outcome == "allowed")} allowed, {events.Count(e => e.Outcome == "blocked")} blocked"
+    $"Host broker: {events.Count(e => e.Outcome == "allowed")} allowed, {events.Count(e => e.Outcome == "blocked")} blocked"
 );
 foreach (var blocked in events.Where(e => e.Outcome == "blocked"))
     Console.WriteLine($"  BLOCKED {blocked.Kind}: {blocked.Method} {blocked.Address} ({blocked.Reason})");
+foreach (var origin in browserBlockedOrigins)
+    Console.WriteLine($"  BLOCKED off-site: {origin} (browser observation)");
 Console.WriteLine(
     $"Teardown: {(outcome.Release.Confirmed ? "confirmed" : "NOT confirmed")} ({outcome.Release.Status}, {outcome.Release.ResourceId})"
 );
@@ -150,6 +163,7 @@ var receipt = new
         execution.Reason,
         execution.WallMilliseconds,
         image = qualification.Image,
+        blockedOffSiteOrigins = browserBlockedOrigins,
     },
     network = new
     {
