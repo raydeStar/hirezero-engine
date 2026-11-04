@@ -96,20 +96,36 @@ public sealed class BrowserTask(InferenceClient model, IBrowserExecutor browser,
             throw new WorkspaceException("The approval does not match this exact itinerary; nothing was run.", 403);
         var request = itinerary.Request;
         var folder = Path.Combine(runsFolder, request.JobId);
+        static WorkspaceException AlreadyRun() => new("This job has already run; it is never run twice.", 409);
         if (Directory.Exists(folder))
-            throw new WorkspaceException("This job has already run; it is never run twice.", 409);
+            throw AlreadyRun();
         Directory.CreateDirectory(folder);
-        Write(
-            folder,
-            "itinerary.json",
-            new
-            {
-                itinerary.Digest,
-                itinerary.Source,
-                itinerary.Note,
-                request,
-            }
-        );
+        // Two runners may both see a new folder. Only the one that creates the packet may dispatch it.
+        var packetPath = Path.Combine(folder, "itinerary.json");
+        FileStream packet;
+        try
+        {
+            packet = new FileStream(packetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        }
+        catch (IOException) when (File.Exists(packetPath))
+        {
+            throw AlreadyRun();
+        }
+        using (packet)
+        {
+            JsonSerializer.Serialize(
+                packet,
+                new
+                {
+                    itinerary.Digest,
+                    itinerary.Source,
+                    itinerary.Note,
+                    request,
+                },
+                Indented
+            );
+            packet.WriteByte((byte)'\n');
+        }
 
         var execution = await browser.ExecuteAsync(request, () => true, token);
 
