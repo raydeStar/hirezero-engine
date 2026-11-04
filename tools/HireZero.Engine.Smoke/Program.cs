@@ -40,7 +40,20 @@ if (!live)
 }
 
 var log = new InferenceUsageLog(Path.Combine("receipts", "inference-usage.jsonl"));
-using var client = new InferenceClient(settings, log);
+InferenceBudget budget;
+try
+{
+    budget = InferenceBudget.FromEnvironment(log);
+}
+catch (InferenceConfigurationException error)
+{
+    Console.Error.WriteLine(error.Message);
+    return 2;
+}
+Console.WriteLine(
+    $"Budget: run {budget.RunLimit:N0} tokens; month {budget.MonthUsed():N0} of {budget.MonthlyLimit:N0} used"
+);
+using var client = new InferenceClient(settings, budget);
 try
 {
     var reply = await client.CompleteAsync(
@@ -59,6 +72,11 @@ try
     );
     Console.WriteLine($"Logged to {log.Path}");
     return 0;
+}
+catch (InferenceBudgetException error)
+{
+    Console.Error.WriteLine(error.Message);
+    return 1;
 }
 catch (InferenceRefusedException error)
 {

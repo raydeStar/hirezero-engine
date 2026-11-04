@@ -16,6 +16,14 @@ public sealed class InferenceTests : IDisposable
     private static InferenceSettings Vultr(params (string, string)[] extra) =>
         InferenceSettings.FromEnvironment(Env([(InferenceSettings.VultrKeyVariable, FakeKey), .. extra]));
 
+    private InferenceUsageLog Log() => new(Path.Combine(_folder, "usage.jsonl"));
+
+    private InferenceBudget Budget(InferenceUsageLog? log = null, long run = 1_000_000, long month = 10_000_000) =>
+        new(run, month, log ?? Log(), () => new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
+
+    private static InferenceUsageEntry Earlier(DateTimeOffset at, long charged) =>
+        new(at, "vultr", "api.vultrinference.com", "m", "earlier", "complete", 1, 1, null, 1, "x", charged);
+
     private sealed class FakeHandler(HttpStatusCode status, string body) : HttpMessageHandler
     {
         public List<(HttpRequestMessage Request, string Body)> Calls { get; } = [];
@@ -104,7 +112,7 @@ public sealed class InferenceTests : IDisposable
     {
         var handler = new FakeHandler(HttpStatusCode.OK, Completion());
         var log = new InferenceUsageLog(Path.Combine(_folder, "usage.jsonl"));
-        using var client = new InferenceClient(Vultr(), log, handler);
+        using var client = new InferenceClient(Vultr(), Budget(log), handler);
 
         var reply = await client.CompleteAsync(
             "fictional system text",
@@ -139,7 +147,7 @@ public sealed class InferenceTests : IDisposable
     public async Task ACallNeverAsksForMoreOutputThanTheConfiguredCap()
     {
         var handler = new FakeHandler(HttpStatusCode.OK, Completion());
-        using var client = new InferenceClient(Vultr((InferenceSettings.MaxOutputVariable, "500")), handler: handler);
+        using var client = new InferenceClient(Vultr((InferenceSettings.MaxOutputVariable, "500")), Budget(), handler);
 
         await client.CompleteAsync("s", "u", "test", 90_000, TestContext.Current.CancellationToken);
 
@@ -151,7 +159,7 @@ public sealed class InferenceTests : IDisposable
     public async Task ARefusalIsReportedOnceAndNeverRetried()
     {
         var handler = new FakeHandler(HttpStatusCode.Unauthorized, """{"error":{"type":"invalid_api_key"}}""");
-        using var client = new InferenceClient(Vultr(), handler: handler);
+        using var client = new InferenceClient(Vultr(), Budget(), handler);
 
         var error = await Assert.ThrowsAsync<InferenceRefusedException>(() =>
             client.CompleteAsync("s", "u", "test", token: TestContext.Current.CancellationToken)
@@ -165,7 +173,7 @@ public sealed class InferenceTests : IDisposable
     public async Task AServerFailureIsAnUnknownOutcomeAndNeverRetried()
     {
         var handler = new FakeHandler(HttpStatusCode.BadGateway, "");
-        using var client = new InferenceClient(Vultr(), handler: handler);
+        using var client = new InferenceClient(Vultr(), Budget(), handler);
 
         await Assert.ThrowsAsync<InferenceUncertainException>(() =>
             client.CompleteAsync("s", "u", "test", token: TestContext.Current.CancellationToken)
@@ -179,7 +187,7 @@ public sealed class InferenceTests : IDisposable
     {
         var handler = new FakeHandler(HttpStatusCode.OK, Completion("length"));
         var log = new InferenceUsageLog(Path.Combine(_folder, "usage.jsonl"));
-        using var client = new InferenceClient(Vultr(), log, handler);
+        using var client = new InferenceClient(Vultr(), Budget(log), handler);
 
         var error = await Assert.ThrowsAsync<InferenceUncertainException>(() =>
             client.CompleteAsync("s", "u", "test", token: TestContext.Current.CancellationToken)
@@ -187,6 +195,79 @@ public sealed class InferenceTests : IDisposable
 
         Assert.Equal(140, error.Usage!.OutputTokens);
         Assert.Equal("withheld", Assert.Single(log.Read()).Outcome);
+    }
+
+    [Fact]
+    public async Task ACallThatCouldOverrunTheRunLimitIsRefusedBeforeItIsSent()
+    {
+        var handler = new FakeHandler(HttpStatusCode.OK, Completion());
+        var budget = Budget(run: 3_000);
+        using var client = new InferenceClient(Vultr(), budget, handler);
+
+        // 1 + 1 input bytes, 256 framing and 2,000 output: 2,258 fits; the provider reports 161, so 2,839 remain.
+        await client.CompleteAsync("s", "u", "test", 2000, TestContext.Current.CancellationToken);
+        Assert.Equal(161, budget.RunUsed);
+        var error = await Assert.ThrowsAsync<InferenceBudgetException>(() =>
+            client.CompleteAsync("s", "u", "test", 2900, TestContext.Current.CancellationToken)
+        );
+
+        Assert.Contains(InferenceBudget.RunVariable, error.Message);
+        Assert.Single(handler.Calls);
+        Assert.Single(budget.Log.Read());
+    }
+
+    [Fact]
+    public async Task TheMonthlyLimitCountsThisMonthsLogAcrossRunsAndIgnoresLastMonth()
+    {
+        var log = Log();
+        log.Append(Earlier(new DateTimeOffset(2026, 10, 31, 23, 0, 0, TimeSpan.Zero), 9_000));
+        log.Append(Earlier(new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), 7_000));
+        var handler = new FakeHandler(HttpStatusCode.OK, Completion());
+        var budget = Budget(log, month: 10_000);
+        using var client = new InferenceClient(Vultr(), budget, handler);
+
+        Assert.Equal(7_000, budget.MonthUsed());
+        await client.CompleteAsync("s", "u", "test", 2000, TestContext.Current.CancellationToken);
+        var error = await Assert.ThrowsAsync<InferenceBudgetException>(() =>
+            client.CompleteAsync("s", "u", "test", 3000, TestContext.Current.CancellationToken)
+        );
+
+        Assert.Contains(InferenceBudget.MonthlyVariable, error.Message);
+        Assert.Single(handler.Calls);
+    }
+
+    [Fact]
+    public async Task AnUnknownOutcomeKeepsItsWholeReservationAndARefusalChargesNothing()
+    {
+        var unknown = Budget();
+        using (var client = new InferenceClient(Vultr(), unknown, new FakeHandler(HttpStatusCode.BadGateway, "")))
+            await Assert.ThrowsAsync<InferenceUncertainException>(() =>
+                client.CompleteAsync("s", "u", "test", 2000, TestContext.Current.CancellationToken)
+            );
+        Assert.Equal(2_258, unknown.RunUsed);
+        Assert.Equal(2_258, Assert.Single(unknown.Log.Read()).ChargedTokens);
+
+        var refused = Budget(new InferenceUsageLog(Path.Combine(_folder, "refused.jsonl")));
+        using (var client = new InferenceClient(Vultr(), refused, new FakeHandler(HttpStatusCode.BadRequest, "{}")))
+            await Assert.ThrowsAsync<InferenceRefusedException>(() =>
+                client.CompleteAsync("s", "u", "test", 2000, TestContext.Current.CancellationToken)
+            );
+        Assert.Equal(0, refused.RunUsed);
+    }
+
+    [Fact]
+    public void TokenLimitsComeFromTheEnvironment()
+    {
+        var budget = InferenceBudget.FromEnvironment(
+            Log(),
+            Env((InferenceBudget.RunVariable, "5000"), (InferenceBudget.MonthlyVariable, "60000"))
+        );
+
+        Assert.Equal((5_000L, 60_000L), (budget.RunLimit, budget.MonthlyLimit));
+        Assert.Equal(200_000, InferenceBudget.FromEnvironment(Log(), Env()).RunLimit);
+        Assert.Throws<InferenceConfigurationException>(() =>
+            InferenceBudget.FromEnvironment(Log(), Env((InferenceBudget.RunVariable, "0")))
+        );
     }
 
     public void Dispose()

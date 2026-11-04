@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -32,21 +33,18 @@ public sealed class InferenceUncertainException(string message, InferenceUsage? 
 
 // Every model call the engine makes goes through this one OpenAI-compatible client, pointed at the provider in
 // InferenceSettings (Vultr by default). One call is one request: no redirects, no retries, max_tokens always set,
-// and each call is appended to the usage log with its token counts but never its prompt, reply or key.
+// each call is held to the run and monthly token limits in InferenceBudget before it is sent, and each call is
+// appended to the usage log with its token counts but never its prompt, reply or key.
 public sealed class InferenceClient : IDisposable
 {
     private readonly InferenceSettings _settings;
     private readonly HttpClient _http;
-    private readonly InferenceUsageLog? _log;
+    private readonly InferenceBudget _budget;
 
-    public InferenceClient(
-        InferenceSettings settings,
-        InferenceUsageLog? log = null,
-        HttpMessageHandler? handler = null
-    )
+    public InferenceClient(InferenceSettings settings, InferenceBudget budget, HttpMessageHandler? handler = null)
     {
         _settings = settings;
-        _log = log;
+        _budget = budget;
         _http = new HttpClient(
             handler
                 ?? new SocketsHttpHandler
@@ -64,6 +62,7 @@ public sealed class InferenceClient : IDisposable
     }
 
     public InferenceSettings Settings => _settings;
+    public InferenceBudget Budget => _budget;
 
     public async Task<InferenceReply> CompleteAsync(
         string system,
@@ -76,6 +75,43 @@ public sealed class InferenceClient : IDisposable
         var limit = Math.Min(maxOutputTokens ?? _settings.MaxOutputTokens, _settings.MaxOutputTokens);
         if (limit < 1)
             throw new ArgumentOutOfRangeException(nameof(maxOutputTokens), "Every call needs a positive output limit.");
+        var worst = InferenceBudget.WorstCase(
+            Encoding.UTF8.GetByteCount(system) + Encoding.UTF8.GetByteCount(user),
+            limit
+        );
+        _budget.Reserve(worst);
+        var charged = worst;
+        try
+        {
+            var reply = await SendAsync(system, user, purpose, limit, worst, token);
+            charged = reply.Usage.TotalTokens;
+            return reply;
+        }
+        catch (InferenceRefusedException)
+        {
+            charged = 0;
+            throw;
+        }
+        catch (InferenceUncertainException error) when (error.Usage is { } usage)
+        {
+            charged = usage.TotalTokens;
+            throw;
+        }
+        finally
+        {
+            _budget.Settle(worst, charged);
+        }
+    }
+
+    private async Task<InferenceReply> SendAsync(
+        string system,
+        string user,
+        string purpose,
+        int limit,
+        long worst,
+        CancellationToken token
+    )
+    {
         var body = new JsonObject
         {
             ["model"] = _settings.Model,
@@ -113,7 +149,7 @@ public sealed class InferenceClient : IDisposable
         catch (Exception error) when (error is HttpRequestException or TaskCanceledException or IOException)
         {
             var reason = error is TaskCanceledException && !token.IsCancellationRequested ? "timed out" : "failed";
-            Record(purpose, clock.Elapsed, "unknown", null, null);
+            Record(purpose, clock.Elapsed, "unknown", null, null, worst);
             throw new InferenceUncertainException(
                 $"The {_settings.Provider} request {reason}; the outcome is unknown and it was not retried.",
                 inner: error
@@ -122,14 +158,14 @@ public sealed class InferenceClient : IDisposable
 
         if (status is >= 400 and < 500)
         {
-            Record(purpose, clock.Elapsed, "refused-" + status, null, null);
+            Record(purpose, clock.Elapsed, "refused-" + status, null, null, 0);
             throw new InferenceRefusedException(
                 $"{_settings.Provider} refused the request (HTTP {status}{ErrorType(text)}). Nothing was processed."
             );
         }
         if (status is < 200 or >= 300)
         {
-            Record(purpose, clock.Elapsed, "unknown-" + status, null, null);
+            Record(purpose, clock.Elapsed, "unknown-" + status, null, null, worst);
             throw new InferenceUncertainException(
                 $"{_settings.Provider} failed (HTTP {status}); the outcome is unknown and it was not retried."
             );
@@ -145,20 +181,27 @@ public sealed class InferenceClient : IDisposable
         }
         catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            Record(purpose, clock.Elapsed, "malformed", null, null);
+            Record(purpose, clock.Elapsed, "malformed", null, null, worst);
             throw new InferenceUncertainException(
                 $"{_settings.Provider} returned a reply this client cannot read; it was not retried.",
                 inner: error
             );
         }
-        Record(purpose, clock.Elapsed, stop == "complete" ? "complete" : "withheld", usage, id);
+        Record(purpose, clock.Elapsed, stop == "complete" ? "complete" : "withheld", usage, id, usage.TotalTokens);
         if (stop != "complete")
             throw new InferenceUncertainException(stop, usage);
         return new(reply, usage, _settings.Provider, _settings.Model, id, clock.Elapsed);
     }
 
-    private void Record(string purpose, TimeSpan elapsed, string outcome, InferenceUsage? usage, string? id) =>
-        _log?.Append(
+    private void Record(
+        string purpose,
+        TimeSpan elapsed,
+        string outcome,
+        InferenceUsage? usage,
+        string? id,
+        long charged
+    ) =>
+        _budget.Log.Append(
             new InferenceUsageEntry(
                 DateTimeOffset.UtcNow,
                 _settings.Provider,
@@ -170,7 +213,8 @@ public sealed class InferenceClient : IDisposable
                 usage?.OutputTokens,
                 usage?.ReasoningTokens,
                 (long)elapsed.TotalMilliseconds,
-                id
+                id,
+                charged
             )
         );
 

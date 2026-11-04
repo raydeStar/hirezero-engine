@@ -31,6 +31,7 @@ Everything after the first commit was built during the event, on the `vultr-agen
 | Date | What | Where |
 | --- | --- | --- |
 | Nov 3 | Config-driven model calls: one OpenAI-compatible client, Vultr Serverless Inference by default with DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`); OpenRouter only as a named local-test option. No retries, `max_tokens` on every call, token use logged per call without prompts, replies or keys | `src/HireZero.Integrations.Inference/` |
+| Nov 3 | Token limits on every call: a per-run limit and a calendar-month limit counted from the usage log, each call reserving its worst case before it is sent; unknown outcomes stay charged in full | `src/HireZero.Integrations.Inference/InferenceBudget.cs` |
 | Nov 3 | A live smoke test that makes one call and prints its token use; dry run unless `--live` | `tools/HireZero.Engine.Smoke/` |
 
 ### Model provider
@@ -46,7 +47,13 @@ Every LLM call goes through `InferenceClient`, configured only from environment 
 | `HIREZERO_INFERENCE_MAX_OUTPUT_TOKENS` | `24000` (DeepSeek reasons before answering and Vultr cannot turn that off) |
 | `HIREZERO_INFERENCE_TIMEOUT_SECONDS` | `300` |
 | `HIREZERO_INFERENCE_REASONING_EFFORT` | `low` (`minimal`, `low`, `medium` or `high`) |
+| `HIREZERO_INFERENCE_RUN_TOKEN_LIMIT` | `200000` tokens per run |
+| `HIREZERO_INFERENCE_MONTHLY_TOKEN_LIMIT` | `20000000` tokens per calendar month (UTC), from `receipts/inference-usage.jsonl` |
 | `HIREZERO_INFERENCE_PROVIDER` | `vultr`; `openrouter` with `OPENROUTER_API_KEY` for local tests only |
+
+A call is refused before it is sent when its worst case (every input byte a token, 256 tokens of framing, and its
+full output limit) would pass either limit. Afterwards it is charged what the provider reported, nothing for a
+refusal, or its whole worst case when the outcome is unknown, since an unconfirmed call may still be billed.
 
 ```sh
 dotnet run --project tools/HireZero.Engine.Smoke            # dry run: shows the provider, sends nothing

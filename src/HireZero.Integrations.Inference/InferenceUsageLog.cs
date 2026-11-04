@@ -14,7 +14,10 @@ public sealed record InferenceUsageEntry(
     long? OutputTokens,
     long? ReasoningTokens,
     long ElapsedMs,
-    string? ResponseId
+    string? ResponseId,
+    // What the call counts against the token limits: reported usage, nothing for a refusal, or the whole worst-case
+    // reservation when the outcome is unknown.
+    long ChargedTokens
 );
 
 // An append-only JSON Lines file. Appends are serialized so concurrent calls never interleave a line.
