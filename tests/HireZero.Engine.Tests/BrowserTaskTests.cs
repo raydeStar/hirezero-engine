@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text;
 using System.Text.Json;
 using HireZero.Agent;
 using HireZero.Core;
@@ -10,33 +8,6 @@ public sealed class BrowserTaskTests : IDisposable
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "hz-task-" + Guid.NewGuid().ToString("N"));
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private const string Site = "https://paper.example.invalid";
-
-    // Answers each model call in order with the given assistant text.
-    private sealed class Model(params string[] replies) : HttpMessageHandler
-    {
-        public List<string> Bodies { get; } = [];
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken token
-        )
-        {
-            Bodies.Add(await request.Content!.ReadAsStringAsync(token));
-            var text = replies[Math.Min(Bodies.Count - 1, replies.Length - 1)];
-            var body = JsonSerializer.Serialize(
-                new
-                {
-                    id = "cmpl-fictional",
-                    choices = new[]
-                    {
-                        new { message = new { role = "assistant", content = text }, finish_reason = "stop" },
-                    },
-                    usage = new { prompt_tokens = 50, completion_tokens = 20 },
-                }
-            );
-            return new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-        }
-    }
 
     private sealed class Browser(bool releasedByRun = false, string pageText = "We sell fictional paper.")
         : IBrowserExecutor
@@ -98,12 +69,15 @@ public sealed class BrowserTaskTests : IDisposable
         }
     }
 
-    private (BrowserTask Task, Model Model, Browser Browser) Make(Browser? browser = null, params string[] replies)
+    private (BrowserTask Task, FakeCompletionHandler Model, Browser Browser) Make(
+        Browser? browser = null,
+        params string[] replies
+    )
     {
         var settings = InferenceSettings.FromEnvironment(n =>
             n == InferenceSettings.VultrKeyVariable ? "fictional-key" : null
         );
-        var model = new Model(replies);
+        var model = new FakeCompletionHandler(replies);
         var budget = new InferenceBudget(
             1_000_000,
             10_000_000,

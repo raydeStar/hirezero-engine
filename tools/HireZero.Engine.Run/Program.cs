@@ -25,13 +25,16 @@ string? Arg(string name) =>
         .FirstOrDefault();
 
 var goal = Arg("--goal");
+var scriptMode = args.Contains("--script");
 var sites = args.Select((a, i) => (a, i))
     .Where(p => p.a == "--site" && p.i + 1 < args.Length)
     .Select(p => args[p.i + 1])
     .ToArray();
-if (goal is null || sites.Length is < 1 or > 4)
+if (string.IsNullOrWhiteSpace(goal) || (scriptMode ? sites.Length != 0 : sites.Length is < 1 or > 4))
 {
-    Console.Error.WriteLine("Usage: --goal \"<what to find out>\" --site https://<site> [--site ...] (1 to 4 sites)");
+    Console.Error.WriteLine(
+        "Usage: --goal \"<what to find out>\" --site https://<site> [--site ...] (1 to 4 sites), or --script --goal \"<what to compute>\""
+    );
     return 2;
 }
 
@@ -58,6 +61,10 @@ catch (InferenceConfigurationException error)
 if (settings.LocalTestOnly)
     Console.WriteLine($"Note: {settings.Provider} is the local-test provider; the competition run uses Vultr.");
 
+using var model = new InferenceClient(settings, budget);
+if (scriptMode)
+    return await ScriptCommand.RunAsync(goal, runs, model, ApprovalFor);
+
 var qualification = BrowserQualification.Read(receiptPath);
 if (qualification is null)
 {
@@ -82,7 +89,6 @@ if (!browser.Availability.Available)
     return 2;
 }
 
-using var model = new InferenceClient(settings, budget);
 var task = new BrowserTask(model, browser, runs);
 Console.WriteLine($"Model: {settings.Provider} {settings.Model} at {settings.BaseUrl.Host}");
 Console.WriteLine($"Goal: {goal}");
@@ -100,14 +106,7 @@ Console.WriteLine(
 );
 Console.WriteLine($"  Packet digest: {itinerary.Digest}");
 
-var approved = Arg("--approve");
-if (approved is null)
-{
-    Console.Write("Approve this exact packet? Type the first 8 characters of its digest: ");
-    var typed = Console.ReadLine()?.Trim() ?? "";
-    approved =
-        typed.Length == 8 && itinerary.Digest.StartsWith(typed, StringComparison.Ordinal) ? itinerary.Digest : "";
-}
+var approved = ApprovalFor(itinerary.Digest);
 if (approved != itinerary.Digest)
 {
     Console.WriteLine("Not approved; nothing was run.");
@@ -197,3 +196,12 @@ File.WriteAllText(
 Console.WriteLine();
 Console.WriteLine($"Receipt: {Path.Combine(outcome.RunFolder, "receipt.json")} ({budget.RunUsed:N0} tokens this run)");
 return outcome.Release.Confirmed && execution.State == "completed" ? 0 : 1;
+
+string ApprovalFor(string digest)
+{
+    if (Arg("--approve") is { } supplied)
+        return supplied;
+    Console.Write("Approve this exact packet? Type the first 8 characters of its digest: ");
+    var typed = Console.ReadLine()?.Trim() ?? "";
+    return typed.Length == 8 && digest.StartsWith(typed, StringComparison.Ordinal) ? digest : "";
+}
