@@ -129,6 +129,13 @@
           "xunit.v3.runner.common": "[4.0.1]"
         }
       },
+      "hirezero.agent": {
+        "type": "Project",
+        "dependencies": {
+          "HireZero.Core": "[1.0.0, )",
+          "HireZero.Integrations.Inference": "[1.0.0, )"
+        }
+      },
       "hirezero.core": {
         "type": "Project"
       },

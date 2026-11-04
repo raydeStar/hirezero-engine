@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/HireZero.Agent/HireZero.Agent.csproj" />
     <Project Path="src/HireZero.Core/HireZero.Core.csproj" />
     <Project Path="src/HireZero.Integrations.Inference/HireZero.Integrations.Inference.csproj" />
     <Project Path="src/HireZero.Integrations.Sandbox/HireZero.Integrations.Sandbox.csproj" />
@@ -9,6 +10,7 @@
     <Project Path="tests/HireZero.Engine.Tests/HireZero.Engine.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/HireZero.Engine.Run/HireZero.Engine.Run.csproj" />
     <Project Path="tools/HireZero.Engine.Smoke/HireZero.Engine.Smoke.csproj" />
   </Folder>
 </Solution>

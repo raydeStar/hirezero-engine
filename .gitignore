@@ -17,3 +17,4 @@ TestResults/
 **/logs/
 # Receipts from a live smoke test stay on the machine that ran it.
 /receipts/
+/runs/

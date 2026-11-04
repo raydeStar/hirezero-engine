@@ -3,6 +3,7 @@
     <ProjectReference Include="../../src/HireZero.Integrations.Sandbox/HireZero.Integrations.Sandbox.csproj" />
     <ProjectReference Include="../../src/HireZero.Integrations.Web/HireZero.Integrations.Web.csproj" />
     <ProjectReference Include="../../src/HireZero.Integrations.Inference/HireZero.Integrations.Inference.csproj" />
+    <ProjectReference Include="../../src/HireZero.Agent/HireZero.Agent.csproj" />
     <Using Include="HireZero.Core" />
   </ItemGroup>
   <ItemGroup>

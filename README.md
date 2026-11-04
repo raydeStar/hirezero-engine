@@ -34,6 +34,8 @@ Everything after the first commit was built during the event, on the `vultr-agen
 | Nov 3 | Token limits on every call: a per-run limit and a calendar-month limit counted from the usage log, each call reserving its worst case before it is sent; unknown outcomes stay charged in full | `src/HireZero.Integrations.Inference/InferenceBudget.cs` |
 | Nov 3 | Every request the browser asks the broker for is reported as allowed or blocked, with why (`off-site`, `address`, `method` and so on), to a JSON Lines log that drops queries and fragments | `src/HireZero.Integrations.Web/BrowserNetworkLog.cs` |
 | Nov 3 | Containment tests: a key planted in the host environment never reaches the browser container's arguments or input; every task runs under gVisor with no network, 512 MB, 1 CPU and a two-minute cap, and is removed on release | `tests/HireZero.Engine.Tests/BrowserContainmentTests.cs` |
+| Nov 3 | The browser agent: the model drafts a read-only itinerary on sites you name, you approve the exact packet by its digest, the qualified browser runs it once, the result is saved before teardown, and the model answers from the captured text. A receipt lists tokens, allowed and blocked requests, and teardown | `src/HireZero.Agent/`, `tools/HireZero.Engine.Run/` |
+| Nov 3 | Disposable Vultr VM: create and destroy (tagged, `--yes` for anything billable), a pinned and hash-checked host bootstrap, and on-VM browser qualification | [`deploy/vultr/`](deploy/vultr/README.md) |
 | Nov 3 | A live smoke test that makes one call and prints its token use; dry run unless `--live` | `tools/HireZero.Engine.Smoke/` |
 
 ### Model provider
