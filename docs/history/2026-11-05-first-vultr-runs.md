@@ -37,3 +37,16 @@ Answer: the page suggests the MIT License, which it describes as short and permi
 redistribution.
 
 The full receipts stay on the VM under `runs/` and `receipts/`; only this summary is in the repository.
+
+## Public web desk
+
+`https://rush.hirezero.app` points at the VM. The web app was published to `/srv/hirezero/app` and runs as two
+systemd services under separate system accounts, both bound to loopback: the read-only gallery (`hz-gallery`, port
+5078, no Docker, key or passphrase) and the owner worker (`hz-worker`, port 5077, in the `docker` group, reading the
+qualification receipt, the Vultr key and the owner passphrase from root-only environment files). Nginx terminates
+TLS with a Let's Encrypt certificate (valid to February 3, 2027) and adds HSTS. Port 80 was open only while the
+certificate was issued; ufw now allows 22 and 443.
+
+Checked from outside the VM: the page, gallery and session endpoints answer 200; the private job list answers 401;
+a gallery POST answers 403; ports 80, 5077 and 5078 refuse connections. The gallery shows one reviewed snapshot of
+the completed run above, with the page's CC BY 3.0 credit and an excerpt of the captured text.
