@@ -4,7 +4,7 @@ A product marketer can check what a product page actually promises before drafti
 
 ```mermaid
 flowchart LR
-    M["Model · Vultr Serverless Inference (deployment target)"]
+    M["Model · Vultr Serverless Inference"]
     A["Host agent · owner approves packet"]
     B["Chromium · gVisor · network disabled"]
     H["Host broker · origin allowlist, DNS, robots and event log"]
@@ -27,6 +27,8 @@ flowchart LR
 | Can the browser call another site? | Chromium runs with `--network none` and checks the origin before asking the broker. The broker independently checks the origin, public address, GET method, crawl policy and budgets. The receipt separates worker-observed off-site origins from broker refusals. [Driver](runtime/browser/driver.mjs) · [Broker](src/HireZero.Integrations.Web/PublicBrowserNetwork.cs) · [Refusal tests](tests/HireZero.Engine.Tests/BrowserNetworkLogTests.cs) |
 | What gets into the sandbox? | The container has a read-only root, no host credentials or bind mounts, 512 MiB, one CPU and a 128-process cap. Each browser packet has a deadline of at most 120 seconds. Tests inspect the actual arguments constructed for Docker and look for a planted credential in the worker input. [Containment tests](tests/HireZero.Engine.Tests/BrowserContainmentTests.cs) · [Packet limits](src/HireZero.Core/Browser.cs) |
 | What survives a run? | The runner writes the execution and JPEGs, records release, then requests an answer if it has text. The real-image qualification checks bounded capture, recovery, timeout, cancellation and removal on the specific engine. [Run sequence](src/HireZero.Agent/BrowserTask.cs) · [Real-image test](tests/HireZero.Engine.Tests/BrowserRuntimeTests.cs) |
+
+**Live on Vultr since November 5: [rush.hirezero.app](https://rush.hirezero.app).** One Vultr Cloud Compute VM qualified its own gVisor browser and serves the desk and gallery over HTTPS. Every model call goes to Vultr Serverless Inference. On Choose a License, Vultr's model drafted the steps and the owner approved the digest. Chromium refused Google Fonts and the broker refused the favicon. The page yielded the MIT License in 11.4 s with 1,080 tokens, and teardown was confirmed with no container left. [Vultr runs](docs/history/2026-11-05-first-vultr-runs.md)
 
 **Observed locally on November 4.** A model-drafted HireZero homepage task captured the product's claims in 14.429 s, with ten allowed requests and 2,575 OpenRouter tokens. A second, web-approved task on Choose a License identified the MIT License in the captured page. Chromium refused Google Fonts before the broker. The broker separately refused the favicon. That browser took 10.899 s, and the answer used 617 tokens. Both runs finished with zero labeled browser containers. [HireZero run](docs/history/2026-11-04-local-browser-run.md) · [Choose a License run](docs/history/2026-11-04-web-browser-run.md)
 
@@ -55,6 +57,6 @@ The [original import](https://github.com/raydeStar/hirezero-engine/commit/0b9c55
 
 ### Built during Agent Rush · November 3–8, 2026
 
-The event branch adds the [browser agent](src/HireZero.Agent/BrowserTask.cs), [broker event log](src/HireZero.Integrations.Web/BrowserNetworkLog.cs), [inference client and budgets](src/HireZero.Integrations.Inference/), [owner desk and judge gallery](src/HireZero.Engine.Web/) and [VM tooling](deploy/vultr/README.md). The target is one Vultr Cloud Compute VM serving HTTPS and orchestrating the sandbox, with all agent model calls through Vultr Serverless Inference. The [Ubuntu bootstrap dry run](docs/history/2026-11-04-bootstrap-dry-run.md) and the two local WSL/OpenRouter runs are complete. Actual Vultr hosting, inference and a public demo URL are pending credits. [Hosted web setup](deploy/vultr/web.md) · [Competition audit](docs/history/2026-11-04-competition-audit.md) · [Submission draft](docs/submission.md)
+The event branch adds the [browser agent](src/HireZero.Agent/BrowserTask.cs), [broker event log](src/HireZero.Integrations.Web/BrowserNetworkLog.cs), [inference client and budgets](src/HireZero.Integrations.Inference/), [owner desk and judge gallery](src/HireZero.Engine.Web/) and [VM tooling](deploy/vultr/README.md). One Vultr Cloud Compute VM serves HTTPS and orchestrates the sandbox, with all agent model calls through Vultr Serverless Inference. The [Ubuntu bootstrap dry run](docs/history/2026-11-04-bootstrap-dry-run.md) and two local WSL/OpenRouter runs came first; the [Vultr deployment and runs](docs/history/2026-11-05-first-vultr-runs.md) followed on November 5. [Hosted web setup](deploy/vultr/web.md) · [Competition audit](docs/history/2026-11-04-competition-audit.md) · [Submission draft](docs/submission.md)
 
 [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)

@@ -1,63 +1,65 @@
 # Demo script · 4 minutes 30 seconds
 
-**Recording update, November 4.** This is the original terminal shot list. The local cut also shows the working web UI. Its HireZero chapter uses the model-drafted run and its Choose a License chapter shows a separately approved homepage packet, a real Google Fonts refusal, the MIT result and release. The screen identifies the site, local host and OpenRouter provider for each run. [Web run and accounting](history/2026-11-04-web-browser-run.md) · [HireZero run](history/2026-11-04-local-browser-run.md)
+**Recording update, November 5.** Record on the Vultr VM and the public desk at [rush.hirezero.app](https://rush.hirezero.app). Every model call there goes to Vultr Serverless Inference, so caption hosted shots **Vultr VM · Vultr Serverless Inference**. The November 4 local cut (WSL, OpenRouter stand-in) can still supply the "what we built" chapter. [Vultr runs](history/2026-11-05-first-vultr-runs.md) · [Local web run](history/2026-11-04-web-browser-run.md)
 
-Use one approved run for the capture, network decisions, teardown and token totals. Keep the same job ID and digest in frame across cuts. Set up the qualified host, the SDK path, the private runs directory (`DEMO_RUNS`) and the provider credentials off camera. Crop private paths, keys and unrelated records.
+Use one approved run for the capture, network decisions, teardown and token totals, and keep its job ID and digest in frame across cuts. Each fresh draft calls the model and needs a new approval, so record a run from start to finish rather than replaying an approval. Crop the SSH key path, the passphrase field and any unrelated records.
 
-The [November 4 local evidence](history/2026-11-04-local-browser-run.md) includes one screenshot and a transcript that can be shown together. Shots 1, 2 and 8 can be recorded now. Shots 3–7 can use the owner's local qualification host with the caption **Local WSL · OpenRouter stand-in** throughout. To label those shots **Vultr VM · Vultr Serverless Inference**, capture a separately approved run on the qualified VM. A hosted web app needs its own live capture before it appears in the film. [Runner](../tools/HireZero.Engine.Run/Program.cs) · [VM qualification and inference setup](../deploy/vultr/README.md)
+Choose a License is the demo site: its homepage loads a Google Fonts stylesheet, which the browser refuses as off-site, and the broker refuses its favicon. Both refusals appear in every run so far.
 
-### 0:00–0:15 · The question (15 s, any host)
+### 0:00–0:15 · The question (15 s)
 
-**Picture.** Start on the owner's question, “What does HireZero help a user do?” Reveal the single permitted site, `https://hirezero.app`.
+**Picture.** The signed-out gallery at `https://rush.hirezero.app`, then the owner's question, "Which license does the page suggest for someone who wants it simple and permissive?", and the single permitted site, `https://choosealicense.com`.
 
-**Narration.** “When I ask a browser agent to read one page, how do I know what else it contacted and whether its browser is still running?”
+**Narration.** "When I ask a browser agent to read one page, how do I know what else it contacted and whether its browser is still running?"
 
-### 0:15–0:45 · Who can reach the internet? (30 s, any host)
+### 0:15–0:45 · Who can reach the internet? (30 s)
 
-**Picture.** Use the [README architecture diagram](../README.md). Trace the model and agent, then the isolated browser's request to the host broker. End at the receipts. For local footage, label the model in the diagram as the Vultr deployment target.
+**Picture.** The [README architecture diagram](../README.md). Trace the model on Vultr and the agent, then the isolated browser's request to the host broker. End at the receipts.
 
-**Narration.** “The model drafts a list of steps. I approve the sites and limits on the host. Chromium runs under gVisor with networking disabled. To load a resource it must ask the host broker, which checks the approved origins and the site's crawl policy. We can inspect what the browser observed and what the broker actually handled.” [Broker](../src/HireZero.Integrations.Web/PublicBrowserNetwork.cs) · [Browser driver](../runtime/browser/driver.mjs)
+**Narration.** "Vultr's model drafts a list of steps. I approve the sites and limits on the host. Chromium runs under gVisor with networking disabled. To load a resource it must ask the host broker, which checks the approved origins and the site's crawl policy. We can inspect what the browser observed and what the broker actually handled." [Broker](../src/HireZero.Integrations.Web/PublicBrowserNetwork.cs) · [Browser driver](../runtime/browser/driver.mjs)
 
-### 0:45–1:35 · Approve this packet (50 s, qualified local host or Vultr VM)
+### 0:45–1:35 · Approve this packet (50 s)
 
-**Picture.** Show the actual model/provider line and the runner's itinerary source. Hold on steps, approved origins and resource limits. Type the first eight characters of the displayed packet digest only after owner review. Record the original session or play its recording; each fresh invocation can call the model. [Runner arguments and approval prompt](../tools/HireZero.Engine.Run/Program.cs)
+**Picture.** Either the owner desk (sign in, enter the goal and site, review, approve) or the terminal on the VM. Hold on the provider line, the itinerary's source, steps, approved origin and limits. Approve only after reading them.
 
 ```sh
-dotnet run --project tools/HireZero.Engine.Run -- --goal "What does HireZero help a user do?" --site https://hirezero.app --runs "$DEMO_RUNS"
+ssh -t -i ~/.ssh/hirezero_vultr root@<vm-ip> hz-demo
 ```
 
-**Narration.** “Here is the goal and the only origin I am allowing. The screen tells me whether the model produced the plan or the fixed template took over. I can inspect the navigation, the read selector and the time allowance. Typing this digest prefix authorizes the packet on screen.”
+`hz-demo` is a VM-local wrapper for `dotnet run --project tools/HireZero.Engine.Run -- --goal "…" --site https://choosealicense.com` with the Vultr key loaded from a root-only file. The prompt names the eight characters to type. [Runner and approval prompt](../tools/HireZero.Engine.Run/Program.cs)
+
+**Narration.** "Here is the goal and the only origin I am allowing. The screen says the model produced this plan. I can inspect the navigation, the read selector and the time allowance. Typing this code authorizes exactly this packet, once."
 
 ### 1:35–2:05 · Read the result (30 s, same run)
 
-**Picture.** Match the printed read step and URL to its capture in `execution.json`. Show the corresponding `capture-…jpg` and the relevant sentence in `answer.md` if present. Use the recorded outcome if a read or answer failed. [Capture and answer writer](../src/HireZero.Agent/BrowserTask.cs)
+**Picture.** The answer beside the screenshot: the "I want it simple and permissive" column names the MIT License. [Capture and answer writer](../src/HireZero.Agent/BrowserTask.cs)
 
-**Narration.** “Here is what the approved read captured. Compare the visible page text with the answer to our opening question. The model received the capture as text. It had no browser tool for following another instruction on the page.”
+**Narration.** "Here is what the approved read captured, and the answer drawn from it. The model received the page as text. It had no browser tool for following any instruction on the page."
 
-### 2:05–2:40 · Inspect the refusal (35 s, run and qualification on the same engine)
+### 2:05–2:40 · Inspect the refusals (35 s, same run)
 
-**Picture.** In the HireZero run's `receipt.json`, show the empty `browser.blockedOffSiteOrigins` and `network.blocked` arrays. Cut to the private qualification receipt's `broker-scope` check and the assertion for `outside.example.invalid` in the real-image test. Caption this cut **Local qualification · fictional page**. If a later, separately approved live run records a `BLOCKED off-site` line, show that line beside its own receipt. [Receipt writer](../tools/HireZero.Engine.Run/Program.cs) · [Real-image assertion](../tests/HireZero.Engine.Tests/BrowserRuntimeTests.cs)
+**Picture.** The `BLOCKED off-site: https://fonts.googleapis.com` and `BLOCKED refused: GET …/favicon.ico` lines, then the matching `browser.blockedOffSiteOrigins` and `network.blocked` entries in `receipt.json`. [Receipt writer](../tools/HireZero.Engine.Run/Program.cs) · [Refusal tests](../tests/HireZero.Engine.Tests/BrowserNetworkLogTests.cs)
 
-**Narration.** “The HireZero page made ten allowed requests and triggered no off-site refusal. To see an actual refusal on this engine, look at the qualification test. Its fictional page tries to fetch an outside origin. The test checks the returned browser result for that refused URL before it will issue this receipt.”
+**Narration.** "The page asked for a font from Google. The browser refused it before anything left the sandbox, because Google isn't an approved site. The broker separately refused the favicon as outside the page's scope. The page still answered the question."
 
-### 2:40–3:15 · Check the empty host (35 s, same Docker engine)
+### 2:40–3:15 · Check the empty host (35 s, same VM)
 
-**Picture.** Hold on the actual `Teardown:` line, then on `teardown.confirmed` and the associated resource ID in the receipt. From the same engine run the following command. Leave the returned prompt visible so an empty result is legible. [Qualification script's leftover check](../deploy/vultr/qualify.sh)
+**Picture.** Hold on the `Teardown: confirmed` line and the resource ID in the receipt, then run this on the VM and leave the empty result visible. [Qualification script's leftover check](../deploy/vultr/qualify.sh)
 
 ```sh
 docker ps -aq --filter label=io.hirezero.browser.installation
 ```
 
-**Narration.** On confirmed release and empty output: “The engine recorded release of this browser. This second check lists running and stopped containers carrying its browser-installation label. The prompt came back with no IDs.” If release failed or any ID appears, report that outcome on screen.
+**Narration.** "The engine recorded release of this browser. This second check lists running and stopped containers carrying its label. The prompt came back with no IDs." If release failed or any ID appears, report that outcome on screen.
 
 ### 3:15–3:45 · Account for the model calls (30 s, same run)
 
-**Picture.** Show `provider`, `model`, `modelCalls` and `tokensThisRun` in the same receipt. Highlight the purpose and outcome of each call, then its actual token fields. For the November 4 run, show 353 draft tokens and 2,222 answer tokens, 2,575 total. [Usage accounting](../src/HireZero.Integrations.Inference/InferenceBudget.cs) · [Receipt fields](../tools/HireZero.Engine.Run/Program.cs)
+**Picture.** `provider`, `model`, `modelCalls` and `tokensThisRun` in the same receipt. The November 5 run used 468 draft tokens and 612 answer tokens, 1,080 in total, about a tenth of a cent on Vultr. [Usage accounting](../src/HireZero.Integrations.Inference/InferenceBudget.cs)
 
-**Narration.** “The receipt tells us who served the request and what each call was for. I can read the reported input and output tokens alongside the run's charged total. If a provider's outcome is unknown, the budget keeps the reservation and the client does not automatically retry.”
+**Narration.** "The receipt names who served each call, what it was for and what it cost in tokens. If a provider's outcome is unknown, the budget keeps the reservation and nothing is retried automatically."
 
-### 3:45–4:30 · What the team built (45 s, any host)
+### 3:45–4:30 · What the team built (45 s)
 
-**Picture.** Show the [original HireZero engine import](https://github.com/raydeStar/hirezero-engine/commit/0b9c5532bd23352d1e4e00482a74143f6ac97021), then the [Agent Rush changes through Nov 3](https://github.com/raydeStar/hirezero-engine/compare/0b9c553...180aa21). Finish on the recording's actual environment and the status of the hosted demo. Show a deployed HTTPS page only when the web app is running on Vultr.
+**Picture.** The [original HireZero engine import](https://github.com/raydeStar/hirezero-engine/commit/0b9c5532bd23352d1e4e00482a74143f6ac97021), then the [Agent Rush changes](https://github.com/raydeStar/hirezero-engine/compare/0b9c553...vultr-agent-rush). Finish on the public desk at `https://rush.hirezero.app`.
 
-**Narration.** “HireZero supplied the pinned browser and script workers, the Docker adapters and the public-web broker. For the November 3–8 Agent Rush we connected the browser to a model, added owner approval and token accounting, recorded network decisions, and scripted deployment and qualification on a disposable Vultr VM. The receipt and the final host check tell you exactly which environment this demonstration exercised.”
+**Narration.** "HireZero supplied the pinned browser and script workers, the Docker adapters and the public-web broker. For the November 3–8 Agent Rush we connected the browser to Vultr's model, added owner approval and token accounting, recorded network decisions, and deployed it on a Vultr VM with a public web desk. The receipt and the final host check show exactly what this run touched."
