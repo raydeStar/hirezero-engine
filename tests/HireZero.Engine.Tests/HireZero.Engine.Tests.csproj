@@ -2,9 +2,14 @@
   <ItemGroup>
     <ProjectReference Include="../../src/HireZero.Integrations.Sandbox/HireZero.Integrations.Sandbox.csproj" />
     <ProjectReference Include="../../src/HireZero.Integrations.Web/HireZero.Integrations.Web.csproj" />
+    <ProjectReference Include="../../src/HireZero.Integrations.Inference/HireZero.Integrations.Inference.csproj" />
+    <ProjectReference Include="../../src/HireZero.Agent/HireZero.Agent.csproj" />
     <Using Include="HireZero.Core" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="../xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HireZero.Engine.Web\HireZero.Engine.Web.csproj" />
   </ItemGroup>
 </Project>
