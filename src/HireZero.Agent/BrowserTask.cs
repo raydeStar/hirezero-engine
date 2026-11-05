@@ -5,8 +5,9 @@ using HireZero.Integrations.Inference;
 namespace HireZero.Agent;
 
 // The itinerary the owner is asked to approve, and where it came from: the model's draft, or the fixed template
-// when the model's draft was unusable.
-public sealed record DraftedItinerary(BrowserRequest Request, string Source, string? Note)
+// when the model's draft was unusable. UncertainCall means the draft call's outcome is unknown: it may have been
+// processed and billed, so it needs reconciling before another paid action.
+public sealed record DraftedItinerary(BrowserRequest Request, string Source, string? Note, bool UncertainCall = false)
 {
     public string Digest => CompanyJson.Digest(Request);
 }
@@ -66,6 +67,7 @@ public sealed class BrowserTask(InferenceClient model, IBrowserExecutor browser,
     {
         var template = HomepageRequest(sites);
         string note;
+        bool uncertain;
         try
         {
             var reply = await model.CompleteAsync(
@@ -91,8 +93,9 @@ public sealed class BrowserTask(InferenceClient model, IBrowserExecutor browser,
         {
             // An unusable draft falls back to the fixed template; it is never re-requested.
             note = "The model's itinerary was not used (" + error.Message + "), so the fixed template was drafted.";
+            uncertain = error is InferenceUncertainException;
         }
-        return new(template, "template", note);
+        return new(template, "template", note, uncertain);
     }
 
     public async Task<TaskOutcome> RunAsync(

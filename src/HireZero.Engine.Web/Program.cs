@@ -70,7 +70,22 @@ public static class WebHost
                         o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                     }
                 );
-            Add("login", 5);
+            // Per client, so a stranger spending login attempts cannot lock the owner out. The passphrase's
+            // 16-character minimum, not this limit, is what makes guessing it impractical.
+            r.AddPolicy(
+                "login",
+                ctx =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        LoginClient(ctx),
+                        _ =>
+                            new()
+                            {
+                                PermitLimit = 5,
+                                Window = TimeSpan.FromMinutes(1),
+                                QueueLimit = 0,
+                            }
+                    )
+            );
             Add("paid", 12);
         });
         var app = builder.Build();
@@ -198,6 +213,31 @@ public static class WebHost
 
     private static IResult Image(byte[]? bytes) =>
         bytes is null ? Results.NotFound(new { error = "Unknown capture." }) : Results.File(bytes, "image/jpeg");
+
+    // Kestrel listens on loopback only, so every connection comes from this machine. Behind the reverse proxy,
+    // which overwrites X-Forwarded-For with the TLS client's address, that header names the client. IPv6
+    // clients are grouped by /64, since one host can rotate through a whole prefix.
+    private static string LoginClient(HttpContext ctx)
+    {
+        var remote = ctx.Connection.RemoteIpAddress;
+        if (
+            (remote is null || IPAddress.IsLoopback(remote))
+            && ctx.Request.Headers["X-Forwarded-For"] is { Count: 1 } forwarded
+            && IPAddress.TryParse(forwarded[0], out var client)
+        )
+            remote = client;
+        if (remote is null)
+            return "unknown";
+        if (remote.IsIPv4MappedToIPv6)
+            remote = remote.MapToIPv4();
+        if (remote.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            var bytes = remote.GetAddressBytes();
+            Array.Clear(bytes, 8, 8);
+            remote = new IPAddress(bytes);
+        }
+        return remote.ToString();
+    }
 
     private sealed record LoginBody(string? Passphrase);
 

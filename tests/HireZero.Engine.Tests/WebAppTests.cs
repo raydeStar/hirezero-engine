@@ -102,6 +102,28 @@ public sealed class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task OneClientSpendingLoginAttemptsDoesNotLockOutAnother()
+    {
+        await using var server = await Start();
+        var c = server.Client;
+        var csrf = (await Read(await c.GetAsync("/api/session", Token))).GetProperty("csrf").GetString();
+        c.DefaultRequestHeaders.Add("X-Forwarded-For", "198.51.100.7");
+        for (var i = 0; i < 5; i++)
+            Assert.Equal(
+                HttpStatusCode.Unauthorized,
+                (await Post(c, "login", new { passphrase = "wrong-fictional-passphrase" }, csrf)).StatusCode
+            );
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            (await Post(c, "login", new { passphrase = Secret }, csrf)).StatusCode
+        );
+
+        c.DefaultRequestHeaders.Remove("X-Forwarded-For");
+        c.DefaultRequestHeaders.Add("X-Forwarded-For", "203.0.113.9");
+        await Login(c);
+    }
+
+    [Fact]
     public async Task ApprovalsAreSessionBoundAndConsumedBeforeDispatch()
     {
         await using var server = await Start();

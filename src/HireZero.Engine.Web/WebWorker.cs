@@ -123,6 +123,14 @@ internal sealed class WebWorker : IDisposable
             {
                 Files.NewJson(ClaimPath, new Claim("draft", null));
                 packet = await runtime.Task.DraftAsync(goal, [site], CancellationToken.None);
+                // A draft call with an unknown outcome may have been billed. The marker stays for operator
+                // reconciliation, and no packet is offered for approval until then.
+                if (packet.UncertainCall)
+                    throw new WorkspaceException(
+                        "The drafting call's outcome is uncertain and it may have been billed. It was not retried. "
+                            + "Reconcile the usage log before another paid action.",
+                        409
+                    );
             }
             var id = packet.Request.JobId;
             var review = new Review(

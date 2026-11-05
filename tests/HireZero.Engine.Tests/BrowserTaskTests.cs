@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using HireZero.Agent;
 using HireZero.Core;
@@ -148,6 +149,41 @@ public sealed class BrowserTaskTests : IDisposable
         Assert.Equal([new("navigate", Site + "/"), new("read", "body")], itinerary.Request.Steps);
         Assert.Single(model.Bodies);
         Assert.Empty(browser.Log);
+    }
+
+    private sealed class StatusModel(HttpStatusCode status) : HttpMessageHandler
+    {
+        public int Calls;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(status));
+        }
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadGateway, true)]
+    [InlineData(HttpStatusCode.BadRequest, false)]
+    public async Task AnUncertainDraftCallIsFlaggedForReconciliationAndNotRetried(HttpStatusCode status, bool uncertain)
+    {
+        var settings = InferenceSettings.FromEnvironment(n =>
+            n == InferenceSettings.VultrKeyVariable ? "fictional-key" : null
+        );
+        var handler = new StatusModel(status);
+        var budget = new InferenceBudget(
+            1_000_000,
+            10_000_000,
+            new InferenceUsageLog(Path.Combine(_folder, "usage.jsonl"))
+        );
+        using var model = new InferenceClient(settings, budget, handler);
+        var task = new BrowserTask(model, new Browser(), Path.Combine(_folder, "runs"));
+
+        var itinerary = await task.DraftAsync("goal", [Site], Token);
+
+        Assert.Equal("template", itinerary.Source);
+        Assert.Equal(uncertain, itinerary.UncertainCall);
+        Assert.Equal(1, handler.Calls);
     }
 
     [Fact]
