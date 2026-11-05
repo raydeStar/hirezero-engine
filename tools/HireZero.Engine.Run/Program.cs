@@ -201,7 +201,7 @@ string ApprovalFor(string digest)
 {
     if (Arg("--approve") is { } supplied)
         return supplied;
-    Console.Write("Approve this exact packet? Type the first 8 characters of its digest: ");
+    Console.Write($"Approve this exact packet? Type {digest[..8]} to run it once, or press Enter to cancel: ");
     var typed = Console.ReadLine()?.Trim() ?? "";
     return typed.Length == 8 && digest.StartsWith(typed, StringComparison.Ordinal) ? digest : "";
 }

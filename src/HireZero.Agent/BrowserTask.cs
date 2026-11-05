@@ -38,7 +38,7 @@ public sealed class BrowserTask(InferenceClient model, IBrowserExecutor browser,
         Actions: "navigate" (a full https URL on one of the approved sites), "click" (a CSS selector),
         "wait-for" (a CSS selector), "read" (a CSS selector whose text is captured).
         Rules: start with navigate; 2 to 8 steps; 1 to 4 reads; at most 4 navigations; never use a site that
-        is not in approvedSites; prefer broad selectors such as "main" or "body" when unsure.
+        is not in approvedSites; use "body" for wait-for and read unless you are sure the page has a narrower element (many sites have no <main>).
         """;
 
     private const string AnswerInstructions = """
